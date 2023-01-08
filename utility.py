@@ -3,6 +3,7 @@ import os
 from math import inf
 import math
 import numpy as np
+from tqdm import tqdm
 
 # this block is for utility function
 def load(path, model):
@@ -110,19 +111,20 @@ def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
     min_loss = inf
 
     # annealing noise
-    noise_levels = [10/math.exp(math.log(100)*n/10) for n in range(11)]
+    n_level = 20
+    noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
     nepoch = 200
-    for epoch in range(nepoch):
-        if epoch % (nepoch//10) ==0:
-            noise_level = noise_levels[epoch//(nepoch//10)]
+    for epoch in tqdm(range(nepoch)):
+        if epoch % (nepoch//n_level) ==0:
+            noise_level = noise_levels[epoch//(nepoch//n_level)]
             print(f"noise level: {noise_level}")
             torch.save(model.state_dict(), f"./model/best_model_ep{epoch}")
         for batchId, h in enumerate(loader):
             # print(batchId)
             h = h.to(device)
             h_noisy = h + torch.randn_like(h)*noise_level
-            loss = 0.5*torch.norm(model.cal_v(h_noisy) - (h - h_noisy)/noise_level**2)**2
+            loss = 0.5*torch.norm(model.score(h_noisy) - (h - h_noisy)/noise_level**2)**2
 
             #backpropagation
             optimizer.zero_grad()

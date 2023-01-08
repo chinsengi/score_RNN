@@ -30,7 +30,7 @@ class MLP(torch.nn.Module):
         x = torch.tanh(x)
         return self.w_out(x)
 
-class LIF(torch.nn.Module):
+class FR(torch.nn.Module):
     def __init__(self, hid_dim, dt=0.001):
         super().__init__()
         self.hid_dim = hid_dim
@@ -41,7 +41,7 @@ class LIF(torch.nn.Module):
         self.dt = dt
 
     def forward(self, input):
-        v = self.cal_v(input)
+        v = self.score(input)
         # mean = torch.zeros(self.hid_dim-1).to(input)-2
         # var  = torch.ones(self.hid_dim-1).to(input)/2
         # GMM_mean = torch.tensor([-2, 2 ]).to(input).unsqueeze(0)
@@ -50,7 +50,7 @@ class LIF(torch.nn.Module):
         # v = score_normal(input,mean, var)
         return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
 
-    def cal_v(self, input):  
+    def score(self, input):  
         v = self.W(torch.tanh(input))
         v = v - torch.diag(self.W.weight)*torch.tanh(input)
         # v = self.W(input)
@@ -58,7 +58,40 @@ class LIF(torch.nn.Module):
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)
         v = v - self.gamma.T*input
         return v
-        
+
+class rand_RNN(torch.nn.Module):
+    def __init__(self, hid_dim, out_dim, dt=0.001):
+        super().__init__()
+        self.hid_dim = hid_dim
+        self.out_dim = out_dim
+        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
+        self.W_rec = nn.Linear(hid_dim, hid_dim, bias=True)
+        self.W_out = nn.Linear(hid_dim, out_dim, bias = False)
+        self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
+        self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
+        self.is_set_weight = False
+        self.non_lin = torch.relu
+        self.dt = dt
+
+    def forward(self, input):
+        v = self.cal_v(input)
+        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
+
+    def set_weight(self):
+        W_rec_tilde = self.W2.weight
+        self.W_out.weight = 2*torch.linalg.solve(self.W1.weight@self.W1.weight.T, self.W1.weight)
+        self.W_rec.weight = W_rec_tilde@self.W_out.weight
+        self.W_rec.bias = self.W2.bias
+        self.is_set_weight = True
+
+    def cal_v(self, input):  
+        if not self.is_set_weight:
+            self.set_weight()
+        v = self.W_out(self.non_lin(self.W_rec(input)))
+        return v      
+
+    def score(self, input):
+        return self.W1(self.non_lin(self.W2(input)))
 
 class RNN(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim):
