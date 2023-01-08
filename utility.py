@@ -2,7 +2,6 @@ import torch
 import os
 from math import inf
 import math
-import numpy as np
 from tqdm import tqdm
 
 # this block is for utility function
@@ -106,25 +105,25 @@ train Gaussian mixture model with conditional noise
 def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
     # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
-    # m = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
-    hid_dim = model.hid_dim
     min_loss = inf
 
     # annealing noise
-    n_level = 20
-    noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+    n_level = 10
+    noise_levels = [1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
 
-    nepoch = 200
+    nepoch = 100
+    model.train()
     for epoch in tqdm(range(nepoch)):
         if epoch % (nepoch//n_level) ==0:
             noise_level = noise_levels[epoch//(nepoch//n_level)]
             print(f"noise level: {noise_level}")
-            torch.save(model.state_dict(), f"./model/best_model_ep{epoch}")
+            torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_ep{epoch}")
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         for batchId, h in enumerate(loader):
             # print(batchId)
             h = h.to(device)
             h_noisy = h + torch.randn_like(h)*noise_level
-            loss = 0.5*torch.norm(model.score(h_noisy) - (h - h_noisy)/noise_level**2)**2
+            loss = 0.5*((model.score(h_noisy) - (h - h_noisy)/noise_level**2)**2).sum(dim=-1).mean(dim=0)
 
             #backpropagation
             optimizer.zero_grad()
@@ -137,6 +136,7 @@ def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
     torch.save(model.state_dict(), f"./model/best_model_ep{nepoch}")    
 
 def gen_traj(model, initial_state, length):
+    model.eval()
     nbatch = initial_state.shape[0]
     hidden_list = torch.zeros(length, nbatch, model.hid_dim)
     hidden_list[0] = initial_state
