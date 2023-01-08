@@ -12,9 +12,9 @@ if __name__ == "__main__":
     var  = torch.ones(hid_dim-1, device=device)/2
     GMM_mean = torch.tensor([-2, 2], device=device).unsqueeze(0)
     GMM_var = torch.tensor([0.5, .5], device=device).unsqueeze(0)
-    load("./model/best_model_var0.5", model)
-    data = UniformData(lower = -2., upper = 2., n=10000, ndim=hid_dim)
-    # data = GMMData(GMM_mean, GMM_var, mean, var, n=10000)
+    # load("./model/best_model_var0.5", model)
+    # data = UniformData(lower = -2., upper = 2., n=10000, ndim=hid_dim)
+    data = GMMData(GMM_mean, GMM_var, mean, var, n=10000)
     train_loader = torch.utils.data.DataLoader(data, batch_size= 64)
     # train_normal(model, train_loader, device)
-    train_GMM(model, train_loader, GMM_mean, GMM_var, device)
+    train_GMM_cn(model, train_loader, GMM_mean, GMM_var, device)

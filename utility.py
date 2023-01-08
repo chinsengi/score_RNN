@@ -1,6 +1,7 @@
 import torch
 import os
 from math import inf
+import math
 import numpy as np
 
 # this block is for utility function
@@ -62,6 +63,9 @@ def train_normal(model, loader, device):
                     torch.save(model.state_dict(), f"./model/best_model_var{var[0].item():.1f}")
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
+'''
+train Gaussian mixture model with analytic score
+'''
 def train_GMM(model, loader, GMM_mean, GMM_var, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
     # m = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
@@ -70,7 +74,7 @@ def train_GMM(model, loader, GMM_mean, GMM_var, device):
     var  = torch.ones(hid_dim-1, device=device)/2
     # mean_test = torch.zeros(hid_dim, device=device)
     # var_test  = torch.ones(hid_dim, device=device)/2
-    min_loss = 100
+    min_loss = inf
     nepoch = 50
     for epoch in range(nepoch):
         for batchId, h in enumerate(loader):
@@ -80,7 +84,7 @@ def train_GMM(model, loader, GMM_mean, GMM_var, device):
             # assert(torch.norm(div_f-div_score_normal(var_test))<0.001)
             f = torch.cat((score_GMM(h[:, [0]], GMM_mean, GMM_var), score_normal(h[:,1:], mean, var)), 1)
             # assert(torch.norm(f-score_normal(h, mean_test, var_test))<0.001)
-            loss = 0.5*torch.norm(div_f + torch.inner(f, f) + torch.sum(model.gamma) - torch.inner(f, model.cal_v(h)))
+            loss = 0.5*torch.norm(div_f + torch.inner(f, f) + torch.sum(model.gamma) - torch.inner(f, model.cal_v(h)))**2
 
             #backpropagation
             optimizer.zero_grad()
@@ -95,14 +99,62 @@ def train_GMM(model, loader, GMM_mean, GMM_var, device):
             print(f"min_loss = {loss.item()}")
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
+'''
+train Gaussian mixture model with conditional noise
+'''
+def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
+    # m = MultivariateNormal(torch.zeros(2).to(device), torch.eye(2).to(device))
+    hid_dim = model.hid_dim
+    min_loss = inf
+
+    # annealing noise
+    noise_levels = [10/math.exp(math.log(100)*n/10) for n in range(11)]
+
+    nepoch = 200
+    for epoch in range(nepoch):
+        if epoch % (nepoch//10) ==0:
+            noise_level = noise_levels[epoch//(nepoch//10)]
+            print(f"noise level: {noise_level}")
+            torch.save(model.state_dict(), f"./model/best_model_ep{epoch}")
+        for batchId, h in enumerate(loader):
+            # print(batchId)
+            h = h.to(device)
+            h_noisy = h + torch.randn_like(h)*noise_level
+            loss = 0.5*torch.norm(model.cal_v(h_noisy) - (h - h_noisy)/noise_level**2)**2
+
+            #backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # if batchId % 100 == 0:
+            #     print(f"loss: {loss.item():>7f}, batchId: {batchId}")
+        print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
+    torch.save(model.state_dict(), f"./model/best_model_ep{nepoch}")    
+
 def gen_traj(model, initial_state, length):
-    hidden_list = torch.zeros(length, model.hid_dim)
+    nbatch = initial_state.shape[0]
+    hidden_list = torch.zeros(length, nbatch, model.hid_dim)
     hidden_list[0] = initial_state
     next = initial_state
     for i in range(1, length):
         next = model(next)
         hidden_list[i] = next
     return hidden_list
+
+'''
+generate samples from a langevin system. 
+
+param:
+    length:number of steps to generate the sample
+'''
+def gen_sample(model, initial_state, length):
+    next = initial_state
+    for i in range(1, length):
+        next = model(next)
+    return next
 
 def use_gpu():
     device = "cuda" if torch.cuda.is_available() else "cpu"

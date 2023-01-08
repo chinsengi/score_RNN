@@ -48,13 +48,13 @@ class LIF(torch.nn.Module):
         # GMM_var = torch.tensor([0.5, .5]).to(input).unsqueeze(0)
         # v = torch.cat((score_GMM(input[:,[0]], GMM_mean, GMM_var), score_normal(input[:,1:], mean, var)), 1)
         # v = score_normal(input,mean, var)
-        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn(self.hid_dim).to(input)
+        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
 
     def cal_v(self, input):  
         v = self.W(torch.tanh(input))
         v = v - torch.diag(self.W.weight)*torch.tanh(input)
         # v = self.W(input)
-        v = self.W(torch.tanh(v))
+        # v = self.W(torch.tanh(v))
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)
         v = v - self.gamma.T*input
         return v
