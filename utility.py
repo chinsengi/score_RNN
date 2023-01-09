@@ -108,10 +108,10 @@ def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
     min_loss = inf
 
     # annealing noise
-    n_level = 10
-    noise_levels = [1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
+    n_level = 20
+    noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
-    nepoch = 100
+    nepoch = 200
     model.train()
     for epoch in tqdm(range(nepoch)):
         if epoch % (nepoch//n_level) ==0:
@@ -133,7 +133,7 @@ def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
             # if batchId % 100 == 0:
             #     print(f"loss: {loss.item():>7f}, batchId: {batchId}")
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-    torch.save(model.state_dict(), f"./model/best_model_ep{nepoch}")    
+    torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_ep{nepoch}")    
 
 def gen_traj(model, initial_state, length):
     model.eval()
