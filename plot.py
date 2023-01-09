@@ -30,23 +30,23 @@ import numpy as np
 if __name__ == '__main__':
     device = use_gpu()
     hid_dim, out_dim= 512, 1
-    samples = (torch.rand([1000, hid_dim])*10-5).to(device)
+    samples = (torch.rand([1000, hid_dim])*4-2).to(device)
     n_level = 20
     noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
-    for i in range(n_level+1):
-        model = rand_RNN(hid_dim, out_dim).to(device)
-        load(f"./model/rand_RNN_ep{i*10}", model)
-        tmp = model.score(torch.arange(-5, 5, .1).to(device).reshape(1, -1,1 )).squeeze().detach().cpu().numpy()
-        plt.plot(np.arange(-5,5,.1), tmp)
-        # plt.show()
-        # model.dt = 1e-6*(noise_levels[i]/noise_levels[-1])**2
-        # samples = gen_sample(model,samples, 100)
-        # # plt.figure()
-        # plt.hist(model.W_out(samples).detach().cpu().numpy(), bins=50)
+    with torch.no_grad():
+        for i in range(1,n_level+1):
+            model = rand_RNN(hid_dim, out_dim).to(device)
+            load(f"./model/rand_RNN_ep{i*10}", model)
+            model.set_weight()
+            # tmp = model.score(torch.arange(-5, 5, .1).to(device).reshape(1, -1,1 )).squeeze().detach().cpu().numpy()
+            # plt.plot(np.arange(-5,5,.1), tmp)
+            model.dt = 1e-2
+            samples = gen_sample(model, samples, 1000)
+            # plt.figure()
+            plt.hist(model.W_out(samples).detach().cpu().numpy(), bins=50)
+    plt.figure()
+    samples = model.W_out(samples).detach().cpu().numpy()
+    plt.hist(samples, bins=50)
     plt.show()
-    # samples = model.W_out(samples).detach().cpu().numpy()
-    # # plt.figure()
-    # plt.hist(samples, bins=50)
-    # plt.show()
 
 # %%

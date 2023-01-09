@@ -75,19 +75,17 @@ class rand_RNN(torch.nn.Module):
 
     def forward(self, input):
         v = self.cal_v(input)
-        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
+        return input + self.dt*v/2 + math.sqrt(self.dt)*torch.randn_like(input)
 
     def set_weight(self):
         W_rec_tilde = self.W2.weight
-        self.W_out.weight = Parameter(2*torch.linalg.solve(self.W1.weight@\
+        self.W_out.weight = Parameter(torch.linalg.solve(self.W1.weight@\
             self.W1.weight.T, self.W1.weight))
         self.W_rec.weight = Parameter(W_rec_tilde@self.W_out.weight)
         self.W_rec.bias = Parameter(self.W2.bias)
         self.is_set_weight = True
 
     def cal_v(self, input):  
-        if not self.is_set_weight:
-            self.set_weight()
         v = self.non_lin(self.W_rec(input))
         return v      
 

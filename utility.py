@@ -154,7 +154,7 @@ param:
 '''
 def gen_sample(model, initial_state, length):
     next = initial_state
-    for i in range(1, length):
+    for i in range(length):
         next = model(next)
     return next
 
