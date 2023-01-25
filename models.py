@@ -38,6 +38,7 @@ class FR(torch.nn.Module):
         self.W = nn.Linear(hid_dim, hid_dim, bias=True)
         self.W2 = nn.Linear(hid_dim, hid_dim, bias=True)
         # self.W_out = nn.Linear(hid_dim, out_dim, bias = True)
+        self.non_lin = torch.tanh
         self.dt = dt
 
     def forward(self, input):
@@ -50,9 +51,10 @@ class FR(torch.nn.Module):
         # v = score_normal(input,mean, var)
         return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
 
-    def score(self, input):  
-        v = self.W(torch.tanh(input))
-        v = v - torch.diag(self.W.weight)*torch.tanh(input)
+    def score(self, input): 
+        input_trans = self.non_lin(input)
+        v = self.W(input_trans)
+        v = v - torch.diag(self.W.weight)*input_trans
         # v = self.W(input)
         # v = self.W(torch.tanh(v))
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)

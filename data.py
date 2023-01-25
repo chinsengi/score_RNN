@@ -48,5 +48,5 @@ class GMMData(Dataset):
         mode_id = random.randint(0, self.n_comp)
         GMMdata =  torch.normal(torch.cat([self.GMMmean[:,mode_id], self.mean]), \
             torch.cat([self.GMMvar[:,mode_id], self.var]))
-        GMMdata = GMMdata.reshape(GMMdata.shape[0],-1)
+        # GMMdata = GMMdata.reshape(GMMdata.shape[0],-1)
         return GMMdata
