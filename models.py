@@ -30,6 +30,9 @@ class MLP(torch.nn.Module):
         x = torch.tanh(x)
         return self.w_out(x)
 
+'''
+vanilla firing rate model of RNN, without output layer
+'''
 class FR(torch.nn.Module):
     def __init__(self, hid_dim, dt=0.001):
         super().__init__()

@@ -64,7 +64,7 @@ def train_normal(model, loader, device):
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
 '''
-train Gaussian mixture model with analytic score
+train RNN to produce Gaussian mixture distribution with analytic score matching
 '''
 def train_GMM(model, loader, GMM_mean, GMM_var, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
@@ -102,7 +102,7 @@ def train_GMM(model, loader, GMM_mean, GMM_var, device):
 '''
 train Gaussian mixture model with conditional noise
 '''
-def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
+def train_GMM_cn(model, loader, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
     # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
     min_loss = inf
@@ -135,6 +135,37 @@ def train_GMM_cn(model, loader, GMM_mean, GMM_var, device):
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_ep{nepoch}")    
 
+def train_MNIST(model, loader, device):
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
+
+    # annealing noise
+    n_level = 10
+    noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+
+    nepoch = 400
+    model.train()
+    for epoch in tqdm(range(nepoch)):
+        if epoch % (nepoch//n_level) ==0:
+            noise_level = noise_levels[epoch//(nepoch//n_level)]
+            print(f"noise level: {noise_level}")
+            torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_MNIST_ep{epoch}")
+            optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        for h in loader:
+            # print(batchId)
+            h = h[0].to(device, torch.float32)
+            h_noisy = h + torch.randn_like(h)*noise_level
+            loss = 0.5*((model.score(h_noisy) - (h - h_noisy)/noise_level**2)**2).sum(dim=-1).mean(dim=0)
+
+            #backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
+    torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_MNIST_ep{nepoch}")   
+
+
 def gen_traj(model, initial_state, length):
     model.eval()
     nbatch = initial_state.shape[0]
@@ -150,7 +181,7 @@ def gen_traj(model, initial_state, length):
 generate samples from a langevin system. 
 
 param:
-    length:number of steps to generate the sample
+    length: number of steps to generate the sample
 '''
 def gen_sample(model, initial_state, length):
     next = initial_state
