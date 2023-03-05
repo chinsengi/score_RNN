@@ -1,0 +1,108 @@
+import torch
+from utility import *
+from models import rand_RNN
+from torch.utils.data import Dataset
+import random
+import tensorboardX
+import numpy as np
+import scipy.io as sio
+import matplotlib.pyplot as plt
+from os.path import dirname, join as pjoin
+
+__all__ = ['Celegans']
+
+class CelegansData(Dataset):
+    def __init__(self):
+        # load datasets
+        N_dataset = 21
+        N_cell = 189
+        T = 960
+        N_length = 109
+        odor_channels = 3
+        T_start = 160
+        trace_datasets = np.zeros((N_dataset, N_cell, T))
+        odor_datasets = np.zeros((N_dataset, odor_channels, T))
+        name_list = []
+                
+        # .mat data load
+        basepath = '../data/worm_activity'
+        mat_fname = pjoin(basepath, 'all_traces_Heads_new.mat')
+        trace_variable = sio.loadmat(mat_fname)
+        #trace_arr = trace_variable['norm_traces']
+        trace_arr = trace_variable['traces']
+        is_L = trace_variable['is_L']
+        neurons_name = trace_variable['neurons']
+        stim_names = trace_variable["stim_names"]
+        stimulate_seconds = trace_variable['stim_times']
+        stims = trace_variable['stims']
+        # multiple trace datasets concatnate
+        for idata in range(N_dataset):
+            ineuron = 0
+            for ifile in range(N_length):
+                if trace_arr[ifile][0].shape[1] == 42:
+                    data = trace_arr[ifile][0][0][idata]
+                    if data.shape[0] < 1:
+                        trace_datasets[idata][ineuron][:] = np.nan
+                    else:
+                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
+                    ineuron+= 1
+                    data = trace_arr[ifile][0][0][idata + 21]
+                    if data.shape[0] < 1:
+                        trace_datasets[idata][ineuron][:] = np.nan
+                    else:
+                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
+                    ineuron+= 1
+                else:
+                    data = trace_arr[ifile][0][0][idata]
+                    if data.shape[0] < 1:
+                        trace_datasets[idata][ineuron][:] = np.nan
+                    else:
+                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
+                    ineuron+= 1
+        # neural activity target
+        activity_worms = trace_datasets[:,:, T_start:] + 2
+        name_list = []
+        for ifile in range(N_length):
+            if is_L[ifile][0][0].shape[0] == 42:
+                name_list.append(neurons_name[ifile][0][0] + 'L')
+                name_list.append(neurons_name[ifile][0][0] + 'R')
+            else:
+                name_list.append(neurons_name[ifile][0][0])
+        activity_list = name_list
+
+        step = 0.25
+        time = np.arange(start = 0, stop = T * step , step = step)
+        # odor list
+        odor_list = ['butanone','pentanedione','NaCL']
+        # multiple odor datasets concatnate
+        for idata in range(N_dataset):
+            for it_stimu in range(stimulate_seconds.shape[0]):
+                tim1_ind = time>stimulate_seconds[it_stimu][0]
+                tim2_ind = time<stimulate_seconds[it_stimu][1]
+                odor_on = np.multiply(tim1_ind.astype(np.int),tim2_ind.astype(np.int))
+                stim_odor = stims[idata][it_stimu] - 1
+                odor_datasets[idata][stim_odor][:] = odor_on
+                        
+        odor_worms = odor_datasets[:,:, T_start:]
+
+        self.activity_worms = np.swapaxes(activity_worms, 1, 2).reshape(-1, 189)
+        self.odor_worms = np.swapaxes(odor_worms, 1, 2).reshape(-1, 3)
+
+    def __len__(self):
+        return self.odor_worms.shape[0]
+    
+    def __getitem__(self, idx):
+        return self.odor_worms[idx], self.activity_worms[idx]
+
+    
+
+class Celegans():
+    def __init__(self, args) -> None:
+        self.args = args
+
+    def train(self):
+        pass
+
+    def test(self):
+        pass
+    
