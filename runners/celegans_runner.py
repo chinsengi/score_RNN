@@ -29,7 +29,8 @@ class CelegansData(Dataset):
         basepath = 'data/worm_activity'
         mat_fname = pjoin(basepath, 'all_traces_Heads_new.mat')
         trace_variable = sio.loadmat(mat_fname)
-        #trace_arr = trace_variable['norm_traces']
+        is_L = trace_variable['is_L']
+        neurons_name = trace_variable['neurons']
         trace_arr = trace_variable['traces']
         stimulate_seconds = trace_variable['stim_times']
         stims = trace_variable['stims']
@@ -58,11 +59,19 @@ class CelegansData(Dataset):
                         trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
                     ineuron+= 1
         # neural activity target
-        activity_worms = trace_datasets[:,:, T_start:774]
+        activity_worms = trace_datasets[:,:, T_start:]
+        name_list = []
+        for ifile in range(N_length):
+            if is_L[ifile][0][0].shape[0] == 42:
+                name_list.append(neurons_name[ifile][0][0] + 'L')
+                name_list.append(neurons_name[ifile][0][0] + 'R')
+            else:
+                name_list.append(neurons_name[ifile][0][0])
+        self.name_list = name_list
 
+        # odor list
         step = 0.25
         time = np.arange(start = 0, stop = T * step , step = step)
-        # odor list
         odor_list = ['butanone','pentanedione','NaCL']
         # multiple odor datasets concatnate
         for idata in range(N_dataset):
@@ -73,18 +82,21 @@ class CelegansData(Dataset):
                 stim_odor = stims[idata][it_stimu] - 1
                 odor_datasets[idata][stim_odor][:] = odor_on
                         
-        odor_worms = odor_datasets[:,:, T_start:774]
+        odor_worms = odor_datasets[:,:, T_start:]
 
-        self.activity_worms = np.swapaxes(activity_worms, 1, 2).reshape(-1, 189)
-        self.odor_worms = np.swapaxes(odor_worms, 1, 2).reshape(-1, 3)
-        self.in_dim = self.odor_worms.shape[1]
-        self.out_dim = self.activity_worms.shape[1]
+        # set internal data
+        self.activity_worms = np.moveaxis(activity_worms[:,:,:774], [0,1,2], [1,2,0]) # [time, trial, neuron]
+        self.odor_worms = np.moveaxis(odor_worms[:,:,:774], [0,1,2], [1,2,0]) # [time, trial, odor]
+        self.activity = self.activity_worms.reshape(-1, 189)
+        self.odor = self.odor_worms.reshape(-1, 3)
+        self.in_dim = self.odor.shape[1]
+        self.out_dim = self.activity.shape[1]
 
     def __len__(self):
-        return self.odor_worms.shape[0]
+        return self.activity.shape[0]
     
     def __getitem__(self, idx):
-        return self.odor_worms[idx], self.activity_worms[idx]
+        return self.odor[idx], self.activity[idx]
 
     
 
@@ -106,7 +118,7 @@ class Celegans():
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64)
         
         # set up the model
-        model = rand_RNN(self.args.hid_dim, train_dataset.out_dim).to(self.args.device)
+        model = rand_RNN(self.args.hid_dim, train_dataset.out_dim).to(self.device)
         # model = torch.nn.DataParallel(model).to(self.args.device)
 
         # annealing noise
@@ -114,16 +126,16 @@ class Celegans():
         noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         # train the model
-        nepoch = 400
+        nepoch = self.args.nepochs
         if self.args.resume:
             load(f"./model/{model.__class__.__name__}_celegans_ep{nepoch}", model)
         model.train()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{epoch+1}")
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+                torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{epoch}")
             for step, (odor, h) in enumerate(train_loader):
                 h = h.to(self.args.device, torch.float32)
                 odor = odor.to(self.args.device, torch.float32)
@@ -139,8 +151,59 @@ class Celegans():
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{nepoch+1}")   
+        torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{nepoch}")   
 
     def test(self):
-        pass
-    
+        # set up dataloader
+        dataset = CelegansData()
+        activity = dataset.activity_worms
+        name_list = dataset.name_list
+
+        # load model weights and set model
+        model = rand_RNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
+        load(f"./model/{model.__class__.__name__}_celegans_ep{self.args.nepochs}", model)
+        with torch.no_grad():
+            model.set_weight()
+            initial_state = self.get_initial_state(model, activity)
+            model.dt = 5e-4
+            hidden_list, trace = self.gen_trace(model, initial_state, 774, dataset)
+            color_list = ['green','royalblue']
+            num_neuron = 6
+            t_steps = 774
+            time = np.arange(0,t_steps)
+            fig, axes = plt.subplots(num_neuron//3, 3, figsize=(10,20))
+            trial = 1
+            for neuron_index in range(num_neuron):
+                ax = axes[neuron_index//3, neuron_index%2]
+                ax.plot(time,activity[:,trial,neuron_index],label='true',color=color_list[0])
+                ax.plot(time,trace[:,trial,neuron_index],label='generated',color=color_list[1])
+                neuron_name = name_list[neuron_index]
+                ax.set_title('neuron:'+ neuron_name)
+                ax.legend()
+            plt.savefig("./image/celegans_trace.png")
+
+    '''
+        get the initial state for the hidden states
+    '''
+    @staticmethod
+    def get_initial_state(model: rand_RNN, activity):
+        init_out = torch.tensor(activity[0, :, :]).to(model.W_out.weight).T
+        return torch.linalg.lstsq(model.W_out.weight, init_out).solution.T
+
+    @staticmethod
+    def gen_trace(model: rand_RNN, initial_state, length, dataset: CelegansData):
+        odor = torch.tensor(dataset.odor_worms).to(initial_state)
+        with torch.no_grad():
+            nbatch = initial_state.shape[0]
+            hidden_list = torch.zeros(length, nbatch, model.hid_dim)
+            trace = torch.zeros(length, nbatch, model.out_dim)
+            hidden_list[0] = initial_state
+            trace[0] = model.W_out(initial_state)
+            next = initial_state
+            for i in range(1, length):
+                next = model(next)
+                hidden_list[i] = next
+                trace[i] = model.W_out(next) + model.Win(odor[i-1, :, :])
+            return hidden_list, trace
+            
+

@@ -23,6 +23,7 @@ def parse_args_and_config():
     parser.add_argument('--comment', type=str, default='')
     parser.add_argument('--test', type=bool, default=False, help='true for training, false for testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
+    parser.add_argument('--nepochs', type=int, default=400)
     args = parser.parse_args()
     args.log = os.path.join(args.run, 'logs', args.run_id)
     args.device = use_gpu()
@@ -37,12 +38,19 @@ def parse_args_and_config():
             if os.path.exists(args.log):
                 shutil.rmtree(args.log)
             os.makedirs(args.log)
-    handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
-    formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-    handler2.setFormatter(formatter)
-    logger = logging.getLogger()
-    logger.addHandler(handler2)
-    logger.setLevel(level)
+        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
+        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
+        handler2.setFormatter(formatter)
+        logger = logging.getLogger()
+        logger.addHandler(handler2)
+        logger.setLevel(level)
+    else:
+        handler1 = logging.StreamHandler()
+        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
+        handler1.setFormatter(formatter)
+        logger = logging.getLogger()
+        logger.addHandler(handler1)
+        logger.setLevel(level)
  
     return args
 

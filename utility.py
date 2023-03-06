@@ -167,10 +167,9 @@ def train_MNIST(model, loader, device):
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_MNIST_ep{nepoch}")   
 
 '''
-Get the trajectory of the Langevin dynamics
+Get the trajectory of the hidden states
 '''
 def gen_traj(model, initial_state, length):
-    model.eval()
     nbatch = initial_state.shape[0]
     hidden_list = torch.zeros(length, nbatch, model.hid_dim)
     hidden_list[0] = initial_state
