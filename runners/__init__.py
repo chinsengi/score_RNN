@@ -1,1 +1,1 @@
-from runners.celegans_runner import *
+from .celegans_runner import *
