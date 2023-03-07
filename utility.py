@@ -4,10 +4,16 @@ from math import inf
 import math
 from tqdm import tqdm
 
-# this block is for utility function
+# load a model
 def load(path, model):
     if os.path.exists(path):
         model.load_state_dict(torch.load(path))
+
+# create directory
+def create_dir(path='./model'):
+    isExist = os.path.exists(path)
+    if not isExist:
+        os.mkdir(path)
 
 # score for normal distribution
 def score_normal(h, mean, variance):

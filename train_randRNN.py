@@ -5,12 +5,14 @@ from data import UniformData, GMMData
 import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearnex import patch_sklearn
-patch_sklearn()
+# from sklearnex import patch_sklearn
+# patch_sklearn()
 
 from sklearn.decomposition import PCA
 
 if __name__ == "__main__":
+    create_dir("./model")
+    create_dir("./image")
     device = use_gpu()
     data_type = "MNIST"
     if data_type == "GMM":
