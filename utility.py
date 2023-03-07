@@ -3,11 +3,14 @@ import os
 from math import inf
 import math
 from tqdm import tqdm
+import logging
 
 # load a model
 def load(path, model):
     if os.path.exists(path):
         model.load_state_dict(torch.load(path))
+    else:
+        logging.warning('weight file not found, training from scratch')
 
 # create directory
 def create_dir(path='./model'):
@@ -142,8 +145,6 @@ def train_GMM_cn(model, loader, device):
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_ep{nepoch}")    
 
 def train_MNIST(model, loader, device):
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
 
     # annealing noise
     n_level = 10
@@ -171,9 +172,10 @@ def train_MNIST(model, loader, device):
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_MNIST_ep{nepoch}")   
 
-
+'''
+Get the trajectory of the hidden states
+'''
 def gen_traj(model, initial_state, length):
-    model.eval()
     nbatch = initial_state.shape[0]
     hidden_list = torch.zeros(length, nbatch, model.hid_dim)
     hidden_list[0] = initial_state
@@ -184,14 +186,14 @@ def gen_traj(model, initial_state, length):
     return hidden_list
 
 '''
-generate samples from a langevin system. 
+generate samples from langevin dynamics. 
 
 param:
     length: number of steps to generate the sample
 '''
 def gen_sample(model, initial_state, length):
     next = initial_state
-    for i in range(length):
+    for _ in range(length):
         next = model(next)
     return next
 

@@ -65,7 +65,7 @@ class FR(torch.nn.Module):
         return v
 
 class rand_RNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, dt=0.001):
+    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
@@ -77,6 +77,15 @@ class rand_RNN(torch.nn.Module):
         self.is_set_weight = False
         self.non_lin = torch.relu
         self.dt = dt
+
+        hid_dim=2000
+        self.Win = nn.Sequential(
+            nn.Linear(in_dim, hid_dim),
+            nn.Softplus(),
+            nn.Linear(hid_dim, hid_dim),
+            nn.Softplus(),
+            nn.Linear(hid_dim, out_dim),
+        )
 
     def forward(self, input):
         v = self.cal_v(input)
@@ -94,8 +103,18 @@ class rand_RNN(torch.nn.Module):
         v = self.non_lin(self.W_rec(input))
         return v      
 
-    def score(self, input):
-        return self.W1(self.non_lin(self.W2(input)))
+    def score(self, sample, input=None):
+        if input is not None:
+            processed_input = self.Win(input)
+        else:
+            processed_input = 0
+        internal_score = self.W1(self.non_lin(self.W2(sample)))
+        return internal_score + processed_input
+    
+    def true_input(self, x):
+        x = self.Win(x)
+        wout = self.W_out.weight
+        return (0.5*wout@wout.T@x.T).T
 
 class RNN(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim):
