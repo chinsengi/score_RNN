@@ -115,7 +115,7 @@ class Celegans():
 
         # set up dataloader
         train_dataset = CelegansData()
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=False)
         
         # set up the model
         model = rand_RNN(self.args.hid_dim, train_dataset.out_dim).to(self.device)
@@ -123,19 +123,20 @@ class Celegans():
 
         # annealing noise
         n_level = 10
-        noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         # train the model
         nepoch = self.args.nepochs
         if self.args.resume:
             load(f"./model/{model.__class__.__name__}_celegans_ep{nepoch}", model)
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{epoch}")
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
             for step, (odor, h) in enumerate(train_loader):
                 h = h.to(self.args.device, torch.float32)
                 odor = odor.to(self.args.device, torch.float32)
@@ -165,22 +166,23 @@ class Celegans():
         with torch.no_grad():
             model.set_weight()
             initial_state = self.get_initial_state(model, activity)
-            model.dt = 5e-4
-            hidden_list, trace = self.gen_trace(model, initial_state, 774, dataset)
-            color_list = ['green','royalblue']
+            model.dt = 1
+            _, trace = self.gen_trace(model, initial_state, 774, dataset)
+            color_list = ['green','red']
             num_neuron = 6
             t_steps = 774
             time = np.arange(0,t_steps)
-            fig, axes = plt.subplots(num_neuron//3, 3, figsize=(10,20))
+            _, axes = plt.subplots(num_neuron//2, 2, figsize=(25,10))
             trial = 1
             for neuron_index in range(num_neuron):
-                ax = axes[neuron_index//3, neuron_index%2]
-                ax.plot(time,activity[:,trial,neuron_index],label='true',color=color_list[0])
-                ax.plot(time,trace[:,trial,neuron_index],label='generated',color=color_list[1])
+                ax = axes[neuron_index//2, neuron_index%2]
+                for trial in range(21):
+                    ax.plot(time,activity[:,trial,neuron_index],label='true',color=color_list[0])
+                ax.plot(time,trace[:,1,neuron_index],label='generated',color=color_list[1])
                 neuron_name = name_list[neuron_index]
                 ax.set_title('neuron:'+ neuron_name)
-                ax.legend()
-            plt.savefig("./image/celegans_trace.png")
+                # ax.legend()
+            plt.savefig("./image/celegans_trace_new.png")
 
     '''
         get the initial state for the hidden states
@@ -203,7 +205,7 @@ class Celegans():
             for i in range(1, length):
                 next = model(next)
                 hidden_list[i] = next
-                trace[i] = model.W_out(next) + model.Win(odor[i-1, :, :])
+                trace[i] = model.W_out(next) + model.true_input(odor[i, :, :])
             return hidden_list, trace
             
 

@@ -110,6 +110,11 @@ class rand_RNN(torch.nn.Module):
             processed_input = 0
         internal_score = self.W1(self.non_lin(self.W2(sample)))
         return internal_score + processed_input
+    
+    def true_input(self, x):
+        x = self.Win(x)
+        wout = self.W_out.weight
+        return (0.5*wout@wout.T@x.T).T
 
 class RNN(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim):
