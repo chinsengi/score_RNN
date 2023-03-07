@@ -78,14 +78,17 @@ class rand_RNN(torch.nn.Module):
         self.non_lin = torch.relu
         self.dt = dt
 
-        hid_dim=2000
         self.Win = nn.Sequential(
             nn.Linear(in_dim, hid_dim),
             nn.Softplus(),
-            nn.Linear(hid_dim, hid_dim),
-            nn.Softplus(),
             nn.Linear(hid_dim, out_dim),
         )
+        self.Win_rec = nn.Sequential(
+            nn.Linear(in_dim, hid_dim*2),
+            nn.Softplus(),
+            nn.Linear(hid_dim*2, hid_dim),
+        )
+
 
     def forward(self, input):
         v = self.cal_v(input)
@@ -99,17 +102,23 @@ class rand_RNN(torch.nn.Module):
         self.W_rec.bias = Parameter(self.W2.bias)
         self.is_set_weight = True
 
-    def cal_v(self, input):  
-        v = self.non_lin(self.W_rec(input))
+    def cal_v(self, hidden, input=None ):
+        if input is not None:
+            input_rec = self.Win_rec(input)
+        else:
+            input_rec = 0  
+        v = self.non_lin(self.W_rec(hidden)+input_rec)
         return v      
 
     def score(self, sample, input=None):
         if input is not None:
-            processed_input = self.Win(input)
+            input_out = self.Win(input)
+            input_rec = self.Win_rec(input)
         else:
-            processed_input = 0
-        internal_score = self.W1(self.non_lin(self.W2(sample)))
-        return internal_score + processed_input
+            input_out = 0
+            input_rec = 0
+        internal_score = self.W1(self.non_lin(self.W2(sample) + input_rec))
+        return internal_score + input_out
     
     def true_input(self, x):
         x = self.Win(x)
