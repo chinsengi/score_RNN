@@ -115,7 +115,7 @@ class Celegans():
 
         # set up dataloader
         train_dataset = CelegansData()
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=False)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
         
         # set up the model
         model = rand_RNN(self.args.hid_dim, train_dataset.out_dim).to(self.device)
@@ -123,7 +123,7 @@ class Celegans():
 
         # annealing noise
         n_level = 10
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         # train the model
         nepoch = self.args.nepochs
@@ -135,7 +135,7 @@ class Celegans():
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{epoch}")
+                save(model, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}")
                 # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
             for step, (odor, h) in enumerate(train_loader):
                 h = h.to(self.args.device, torch.float32)
@@ -152,7 +152,7 @@ class Celegans():
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_celegans_ep{nepoch}")   
+        save(model, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}") 
 
     def test(self):
         # set up dataloader
@@ -162,27 +162,34 @@ class Celegans():
 
         # load model weights and set model
         model = rand_RNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
-        load(f"./model/{model.__class__.__name__}_celegans_ep{self.args.nepochs}", model)
+        load(f"./model/{self.args.run_id}/{model.__class__.__name__}_celegans_ep{self.args.nepochs}", model)
         with torch.no_grad():
             model.set_weight()
             initial_state = self.get_initial_state(model, activity)
             model.dt = 1e-3
             _, trace = self.gen_trace(model, initial_state, 774, dataset)
+            trace = trace.detach().cpu().numpy()
             color_list = ['green','red']
             num_neuron = 6
-            t_steps = 700
+            t_steps = 774
             time = np.arange(0,t_steps)
-            for trial in range(1):
+            for trial in range(21):
                 logging.info(f"generating trial {trial}")
                 _, axes = plt.subplots(num_neuron//2, 2, figsize=(25,10))
                 for neuron_index in range(num_neuron):
                     ax = axes[neuron_index//2, neuron_index%2]
                     ax.plot(time,activity[:t_steps,trial,neuron_index],label='true',color=color_list[0])
                     ax.plot(time,trace[:t_steps,trial,neuron_index],label='generated',color=color_list[1])
+                    data = np.zeros([2, t_steps])
+                    data[0, :] = activity[:t_steps,trial,neuron_index]
+                    data[1, :] = trace[:t_steps,trial,neuron_index]
+                    corrcoef = np.corrcoef(data)
+                    # logging.info(f"{corrcoef.shape}")
+                    corrcoef = corrcoef[0,1]
                     neuron_name = name_list[neuron_index]
-                    ax.set_title('neuron:'+ neuron_name)
+                    ax.set_title(f"neuron:{neuron_name}, corrcoef:{corrcoef}")
                     ax.legend()
-                plt.savefig(f"./image/celegans_trace_trial{trial}.png")
+                savefig(filename=f"celegans_trace_trial{trial}.png")
                 plt.close()
 
     '''
@@ -194,7 +201,7 @@ class Celegans():
         return torch.linalg.lstsq(model.W_out.weight, init_out).solution.T
 
     @staticmethod
-    def gen_trace(model: rand_RNN, initial_state, length, dataset: CelegansData, annealing_step=1000):
+    def gen_trace(model: rand_RNN, initial_state, length, dataset: CelegansData, annealing_step=100):
         odor = torch.tensor(dataset.odor_worms).to(initial_state)
         activity = dataset.activity_worms
         init_out = torch.tensor(activity[0, :, :]).to(model.W_out.weight)
@@ -206,9 +213,9 @@ class Celegans():
             trace[0] = init_out
             next = initial_state
             for i in range(1, length*annealing_step):
-                next = model(next)
+                idx = i//annealing_step
+                next = model(next, odor[idx, :, :])
                 if i%annealing_step==0:
-                    idx = i//annealing_step
                     hidden_list[idx] = next
                     trace[idx] = model.W_out(next) + model.true_input(odor[idx, :, :])
             return hidden_list, trace

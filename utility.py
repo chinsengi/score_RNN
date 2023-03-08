@@ -4,6 +4,7 @@ from math import inf
 import math
 from tqdm import tqdm
 import logging
+import matplotlib.pyplot as plt
 
 # load a model
 def load(path, model):
@@ -12,6 +13,16 @@ def load(path, model):
     else:
         logging.warning('weight file not found, training from scratch')
 
+def save(model, path, filename):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    torch.save(model.state_dict(), os.path.join(path, filename))
+
+def savefig(path='./image', filename='image'):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    plt.savefig(os.path.join(path, filename))
+    
 # create directory
 def create_dir(path='./model'):
     isExist = os.path.exists(path)

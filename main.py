@@ -38,10 +38,13 @@ def parse_args_and_config():
             if os.path.exists(args.log):
                 shutil.rmtree(args.log)
             os.makedirs(args.log)
+        handler1 = logging.StreamHandler()
         handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
         formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
         handler2.setFormatter(formatter)
+        handler1.setFormatter(formatter)
         logger = logging.getLogger()
+        # logger.addHandler(handler1)
         logger.addHandler(handler2)
         logger.setLevel(level)
     else:
