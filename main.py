@@ -18,7 +18,7 @@ def parse_args_and_config():
     parser.add_argument('--run', type=str, default='run', help='Path for saving running related data.')
     parser.add_argument('--hid_dim', type=int, default=5000, help='number of hidden units used by the model')
     parser.add_argument('--resume', action='store_true', help='whether to train from the last checkpoint')
-    parser.add_argument('--seed', type=int, default=1234, help='Random seed')
+    parser.add_argument('--seed', type=int, default=3407, help='Random seed')
     parser.add_argument('--run_id', type=str, default='0', help='id used to identify different runs')
     parser.add_argument('--comment', type=str, default='')
     parser.add_argument('--test', action='store_true', help='specify to enable testing')

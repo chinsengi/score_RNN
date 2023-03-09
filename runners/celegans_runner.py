@@ -123,13 +123,14 @@ class Celegans():
 
         # annealing noise
         n_level = 10
-        noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [5/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         # train the model
         nepoch = self.args.nepochs
         if self.args.resume:
             load(f"./model/{model.__class__.__name__}_celegans_ep{nepoch}", model)
         model.train()
+        model = torch.compile(model)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
@@ -201,7 +202,7 @@ class Celegans():
         return torch.linalg.lstsq(model.W_out.weight, init_out).solution.T
 
     @staticmethod
-    def gen_trace(model: rand_RNN, initial_state, length, dataset: CelegansData, annealing_step=100):
+    def gen_trace(model: rand_RNN, initial_state, length, dataset: CelegansData, annealing_step=1):
         odor = torch.tensor(dataset.odor_worms).to(initial_state)
         activity = dataset.activity_worms
         init_out = torch.tensor(activity[0, :, :]).to(model.W_out.weight)
