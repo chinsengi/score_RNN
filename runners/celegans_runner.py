@@ -127,17 +127,16 @@ class Celegans():
 
         # train the model
         nepoch = self.args.nepochs
-        if self.args.resume:
-            load(f"./model/{model.__class__.__name__}_celegans_ep{nepoch}", model)
         model.train()
         model = torch.compile(model)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        if self.args.resume:
+            load(f"./model/{model.__class__.__name__}_celegans_chkpt", model, optimizer)
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                save(model, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}")
-                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+                save(model, optimizer, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}")
             for step, (odor, h) in enumerate(train_loader):
                 h = h.to(self.args.device, torch.float32)
                 odor = odor.to(self.args.device, torch.float32)
@@ -153,7 +152,7 @@ class Celegans():
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        save(model, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}") 
+        save(model, optimizer, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}") 
 
     def test(self):
         # set up dataloader
@@ -163,7 +162,7 @@ class Celegans():
 
         # load model weights and set model
         model = rand_RNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
-        load(f"./model/{self.args.run_id}/{model.__class__.__name__}_celegans_ep{self.args.nepochs}", model)
+        load(f"./model/{self.args.run_id}/{model.__class__.__name__}_celegans_chkpt", model)
         with torch.no_grad():
             model.set_weight()
             initial_state = self.get_initial_state(model, activity)

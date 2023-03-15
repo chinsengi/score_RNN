@@ -1,3 +1,4 @@
+########################### Pending Deprecation ######################
 import torch
 from utility import *
 from models import rand_RNN
@@ -32,7 +33,7 @@ if __name__ == "__main__":
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
-        trans = torchvision.transforms.Normalize(.1307, .3081)
+        # trans = torchvision.transforms.Normalize(.1307, .3081)
         train_data = train_data.data.to(torch.float32).reshape(len(train_data), -1)
         train_data = torch.nn.functional.normalize(train_data, dim = 1)
         plt.imshow(train_data[0].reshape([28,28]))

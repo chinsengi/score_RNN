@@ -7,16 +7,23 @@ import logging
 import matplotlib.pyplot as plt
 
 # load a model
-def load(path, model):
+def load(path, model, optimizer=None):
     if os.path.exists(path):
-        model.load_state_dict(torch.load(path))
+        state = torch.load(path)
+        model.load_state_dict(state[0])
+        if optimizer is not None:
+            optimizer.load_state_dict(state[1])
     else:
         logging.warning('weight file not found, training from scratch')
 
-def save(model, path, filename):
+def save(model, optimizer, path, filename):
     if not os.path.exists(path):
         os.makedirs(path)
-    torch.save(model.state_dict(), os.path.join(path, filename))
+    states = [
+        model.state_dict(),
+        optimizer.state_dict()
+    ]
+    torch.save(states, os.path.join(path, filename))
 
 def savefig(path='./image', filename='image'):
     if not os.path.exists(path):

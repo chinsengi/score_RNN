@@ -25,7 +25,7 @@ def parse_args_and_config():
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
     args = parser.parse_args()
-    args.log = os.path.join(args.run, 'logs', args.run_id)
+    args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()
 
     # specify logging configuration
