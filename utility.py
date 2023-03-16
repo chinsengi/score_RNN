@@ -5,6 +5,7 @@ import math
 from tqdm import tqdm
 import logging
 import matplotlib.pyplot as plt
+import time
 
 # load a model
 def load(path, model, optimizer=None):
@@ -28,7 +29,9 @@ def save(model, optimizer, path, filename):
 def savefig(path='./image', filename='image'):
     if not os.path.exists(path):
         os.makedirs(path)
-    plt.savefig(os.path.join(path, filename))
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+    plt.savefig(os.path.join(path, current_time + filename))
     
 # create directory
 def create_dir(path='./model'):
@@ -131,7 +134,6 @@ train Gaussian mixture model with conditional noise
 '''
 def train_GMM_cn(model, loader, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
     min_loss = inf
 
     # annealing noise
@@ -210,8 +212,10 @@ param:
     length: number of steps to generate the sample
 '''
 def gen_sample(model, initial_state, length):
+    assert(model.is_set_weight)
     next = initial_state
     for _ in range(length):
+        # next = next + model.dt*model.score(next) + math.sqrt(2*model.dt)*torch.randn_like(next)
         next = model(next)
     return next
 

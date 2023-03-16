@@ -69,13 +69,13 @@ class rand_RNN(torch.nn.Module):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
+        # self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
         self.W_rec = nn.Linear(hid_dim, hid_dim, bias=True)
         self.W_out = nn.Linear(hid_dim, out_dim, bias = False)
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        self.non_lin = torch.relu
+        self.non_lin = torch.tanh
         self.dt = dt
 
         self.Win = nn.Sequential(
@@ -92,13 +92,15 @@ class rand_RNN(torch.nn.Module):
 
     def forward(self, hidden, input=None):
         v = self.cal_v(hidden, input)
-        return hidden + self.dt*v/2 + math.sqrt(self.dt)*torch.randn_like(hidden)
-
+        nbatch = hidden.shape[0]
+        return hidden + self.dt*v + (math.sqrt(2*self.dt)*torch.randn(nbatch, self.out_dim).to(hidden))@self.sig.T
+    
     def set_weight(self):
         W_rec_tilde = self.W2.weight
-        self.W_out.weight = Parameter(torch.linalg.solve(self.W1.weight@\
-            self.W1.weight.T, self.W1.weight))
-        self.W_rec.weight = Parameter(W_rec_tilde@self.W_out.weight)
+        self.W_out.weight = self.W1.weight
+        self.sig = Parameter(torch.linalg.solve(self.W1.weight@\
+            self.W1.weight.T, self.W1.weight.T, left=False))
+        self.W_rec.weight = Parameter(W_rec_tilde@self.W1.weight)
         self.W_rec.bias = Parameter(self.W2.bias)
         self.is_set_weight = True
 
@@ -107,7 +109,7 @@ class rand_RNN(torch.nn.Module):
             input_rec = self.Win_rec(input)
         else:
             input_rec = 0  
-        v = self.non_lin(self.W_rec(hidden)+input_rec)
+        v = -hidden + self.non_lin(self.W_rec(hidden)+input_rec)
         return v      
 
     def score(self, sample, input=None):
@@ -117,7 +119,7 @@ class rand_RNN(torch.nn.Module):
         else:
             input_out = 0
             input_rec = 0
-        internal_score = self.W1(self.non_lin(self.W2(sample) + input_rec))
+        internal_score = -sample + self.W1(self.non_lin(self.W2(sample) + input_rec))
         return internal_score + input_out
     
     def true_input(self, x):

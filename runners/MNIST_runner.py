@@ -5,8 +5,8 @@ import torchvision
 import logging
 import tensorboardX
 import matplotlib.pyplot as plt
-from os.path import dirname, join as pjoin
 from sklearn.decomposition import PCA
+import time
 from sklearnex import patch_sklearn
 patch_sklearn()
 
@@ -21,7 +21,6 @@ class MNIST():
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
-        trans = torchvision.transforms.Normalize(.1307, .3081)
         train_data = train_data.data.to(torch.float32).reshape(len(train_data), -1)
         train_data = torch.nn.functional.normalize(train_data, dim = 1)
         plt.imshow(train_data[0].reshape([28,28]))
@@ -39,19 +38,20 @@ class MNIST():
         
         model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
         # annealing noise
-        n_level = 10
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        n_level = 20
+        noise_levels = [10/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         nepoch = 400
         model.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         if self.args.resume:
-            load(f"./model/{model.__class__.__name__}_MNIST_chkpt", model, optimizer)
+            load(f"./model/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/MNIST", f"{model.__class__.__name__}_MNIST_epoch{epoch}")
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
             for h in train_loader:
                 # print(batchId)
                 h = h[0].to(self.device, torch.float32)
@@ -64,19 +64,19 @@ class MNIST():
                 optimizer.step()
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        save(model, optimizer, f"./model/MNIST", f"{model.__class__.__name__}_MNIST_chkpt")
+        save(model, optimizer, f"./model/MNIST", f"{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}")
 
 
     def test(self):
         model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
 
-        load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt", model)
+        load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
 
         model.set_weight()
         samples = (torch.rand([10, self.hid_dim])*20-10).to(self.device)
         with torch.no_grad():
-            model.dt = 5e-2
-            samples = gen_sample(model, samples, 5000)
+            model.dt = 1e-3
+            samples = gen_sample(model, samples, 1000)
             samples = model.W_out(samples).detach().cpu().numpy()
             samples = self.pca.inverse_transform(samples).reshape(len(samples), 28, 28)
             print(samples.shape)
@@ -85,4 +85,4 @@ class MNIST():
                 for j in range(5):
                     ax = axes[i,j]
                     ax.imshow(samples[i*5+j])
-            plt.savefig("./image/digit_sampled.png")
+            savefig(path="./image/MNIST", filename="_digit_sampled.png")
