@@ -18,8 +18,7 @@ def load(path, model, optimizer=None):
         logging.warning('weight file not found, training from scratch')
 
 def save(model, optimizer, path, filename):
-    if not os.path.exists(path):
-        os.makedirs(path)
+    create_dir(path)
     states = [
         model.state_dict(),
         optimizer.state_dict()
@@ -27,8 +26,7 @@ def save(model, optimizer, path, filename):
     torch.save(states, os.path.join(path, filename))
 
 def savefig(path='./image', filename='image'):
-    if not os.path.exists(path):
-        os.makedirs(path)
+    create_dir(path)
     t = time.localtime()
     current_time = time.strftime("%H:%M:%S", t)
     plt.savefig(os.path.join(path, current_time + filename))
@@ -219,7 +217,9 @@ def gen_sample(model, initial_state, length):
         next = model(next)
     return next
 
-def use_gpu():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def use_gpu(gpu_id: int=0):
+    num_of_gpus = torch.cuda.device_count()
+    if num_of_gpus>0: assert(gpu_id<num_of_gpus)
+    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
     return device

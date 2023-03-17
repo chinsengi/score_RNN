@@ -75,7 +75,7 @@ class rand_RNN(torch.nn.Module):
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        self.non_lin = torch.tanh
+        self.non_lin = torch.relu
         self.dt = dt
 
         self.Win = nn.Sequential(
