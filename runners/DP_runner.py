@@ -63,7 +63,7 @@ class DP():
                 model.set_weight()
                 tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(np.arange(-5,5,.1), tmp)
-                savefig(path="./image/DP", filename="score_func.png")
+            savefig(path="./image/DP", filename="_score_func.png")
             model = rand_RNN(hid_dim, out_dim).to(self.device)
             load(f"./model/DP/{self.args.run_id}/{model.__class__.__name__}_chkpt{self.args.run_id}.pth", model)
             model.set_weight()
