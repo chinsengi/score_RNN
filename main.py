@@ -65,10 +65,11 @@ def main():
     logging.info(args)
 
     # set random seed
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
+    if args.seed != 0:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed)
 
     try:
         runner = eval(args.runner)(args)

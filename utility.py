@@ -6,6 +6,7 @@ from tqdm import tqdm
 import logging
 import matplotlib.pyplot as plt
 import time
+import numpy as np
 
 # load a model
 def load(path, model, optimizer=None):
@@ -50,7 +51,28 @@ def normal_pdf(x, mean, variance):
     return torch.exp(-(x-mean)**2/(2*variance))\
                 /(torch.sqrt(2*torch.pi*variance))
 
+def grad_normal_pdf(x, mean, variance):
+    return normal_pdf(x, mean, variance) * (-(x-mean))/variance
+
+def mixture_pdf(x, mean, variance):
+    n_comp = len(mean)
+    sum = 0
+    for i in range(n_comp):
+        sum = sum + normal_pdf(x, mean[i], variance[i])
+    return sum/n_comp
+
+
+
 # score for 1-D Gaussian mixture distribution
+def score_GMM_1D(x, mean, variance):
+    n_comp = len(mean)
+    pdf = mixture_pdf(x, mean, variance)
+    grad = 0
+    for i in range(n_comp):
+        grad += grad_normal_pdf(x, mean[i], variance[i])
+    grad /= n_comp
+    return grad/pdf
+
 def score_GMM(x, mean, variance):
     n_comp = mean.shape[1]
     pdf_vec = normal_pdf(x, mean, variance)/n_comp
