@@ -3,13 +3,40 @@ import os
 from math import inf
 import math
 from tqdm import tqdm
-import numpy as np
+import logging
 import matplotlib.pyplot as plt
+import time
+import numpy as np
 
-# this block is for utility function
-def load(path, model):
+# load a model
+def load(path, model, optimizer=None):
     if os.path.exists(path):
-        model.load_state_dict(torch.load(path))
+        state = torch.load(path)
+        model.load_state_dict(state[0])
+        if optimizer is not None:
+            optimizer.load_state_dict(state[1])
+    else:
+        logging.warning('weight file not found, training from scratch')
+
+def save(model, optimizer, path, filename):
+    create_dir(path)
+    states = [
+        model.state_dict(),
+        optimizer.state_dict()
+    ]
+    torch.save(states, os.path.join(path, filename))
+
+def savefig(path='./image', filename='image'):
+    create_dir(path)
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+    plt.savefig(os.path.join(path, current_time + filename))
+    
+# create directory
+def create_dir(path='./model'):
+    isExist = os.path.exists(path)
+    if not isExist:
+        os.mkdir(path)
 
 # score for normal distribution
 def score_normal(h, mean, variance):
@@ -22,7 +49,28 @@ def normal_pdf(x, mean, variance):
     return torch.exp(-(x-mean)**2/(2*variance))\
                 /(torch.sqrt(2*torch.pi*variance))
 
+def grad_normal_pdf(x, mean, variance):
+    return normal_pdf(x, mean, variance) * (-(x-mean))/variance
+
+def mixture_pdf(x, mean, variance):
+    n_comp = len(mean)
+    sum = 0
+    for i in range(n_comp):
+        sum = sum + normal_pdf(x, mean[i], variance[i])
+    return sum/n_comp
+
+
+
 # score for 1-D Gaussian mixture distribution
+def score_GMM_1D(x, mean, variance):
+    n_comp = len(mean)
+    pdf = mixture_pdf(x, mean, variance)
+    grad = 0
+    for i in range(n_comp):
+        grad += grad_normal_pdf(x, mean[i], variance[i])
+    grad /= n_comp
+    return grad/pdf
+
 def score_GMM(x, mean, variance):
     n_comp = mean.shape[1]
     pdf_vec = normal_pdf(x, mean, variance)/n_comp
@@ -106,7 +154,6 @@ train Gaussian mixture model with conditional noise
 '''
 def train_GMM_cn(model, loader, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
     min_loss = inf
 
     # annealing noise
@@ -138,8 +185,6 @@ def train_GMM_cn(model, loader, device):
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_ep{nepoch}")    
 
 def train_MNIST(model, loader, device):
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
-    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=.9)
 
     # annealing noise
     n_level = 10
@@ -167,9 +212,10 @@ def train_MNIST(model, loader, device):
         print(f"loss: {loss.item():>7f}, Epoch: {epoch}")
     torch.save(model.state_dict(), f"./model/{model.__class__.__name__}_MNIST_ep{nepoch}")   
 
-
+'''
+Get the trajectory of the hidden states
+'''
 def gen_traj(model, initial_state, length):
-    model.eval()
     nbatch = initial_state.shape[0]
     hidden_list = torch.zeros(length, nbatch, model.hid_dim)
     hidden_list[0] = initial_state
@@ -180,19 +226,23 @@ def gen_traj(model, initial_state, length):
     return hidden_list
 
 '''
-generate samples from a langevin system. 
+generate samples from langevin dynamics. 
 
 param:
     length: number of steps to generate the sample
 '''
 def gen_sample(model, initial_state, length):
+    assert(model.is_set_weight)
     next = initial_state
-    for i in range(length):
+    for _ in range(length):
+        # next = next + model.dt*model.score(next) + math.sqrt(2*model.dt)*torch.randn_like(next)
         next = model(next)
     return next
 
-def use_gpu():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def use_gpu(gpu_id: int=0):
+    num_of_gpus = torch.cuda.device_count()
+    if num_of_gpus>0: assert(gpu_id<num_of_gpus)
+    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
     return device
 
