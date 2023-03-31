@@ -245,3 +245,42 @@ def use_gpu(gpu_id: int=0):
     device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
     return device
+
+def requires_grad(parameters, flag=True):
+    for p in parameters:
+        p.requires_grad = flag
+
+def plot_spatial_rf(U, n=None, color='black', size=(10,10)):
+    # assume U is num_neuron x dim
+    fig, ax = plt.subplots(figsize=size)
+    ax.cla()
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
+    if n is None:
+        n = U.shape[0]
+
+    M = int(math.sqrt(n))
+    N = M if M ** 2 == n else M + 1
+    D = int(math.sqrt(U.shape[1]))
+
+    panel = np.zeros([M * D, N * D])
+    # draw
+    for i in range(M):
+        for j in range(N):
+            if i * M + j < n:
+                panel[i*D:(i+1)*D,j*D:(j+1)*D] = U[i * M + j].reshape(D, D)
+
+    ax.imshow(panel, "gray")
+    plt.setp(ax.spines.values(), color=color)
+    return fig, ax
+
+def plot_true_and_recon_img(true_img, recon_img, size=(10,10)):
+    fig, ax = plt.subplots(1,2, figsize=size)
+    ax[0].imshow(true_img, cmap='gray')
+    ax[1].imshow(recon_img, cmap='gray')
+    ax[0].get_xaxis().set_visible(False)
+    ax[0].get_yaxis().set_visible(False)
+    ax[1].get_xaxis().set_visible(False)
+    ax[1].get_yaxis().set_visible(False)
+    return fig, ax
