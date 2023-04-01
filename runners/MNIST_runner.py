@@ -1,18 +1,29 @@
 import torch
 from utility import *
-from models import rand_RNN
+from models import rand_RNN, SparseNet
 import torchvision
 import logging
-import tensorboardX
+
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import time
-from sklearnex import patch_sklearn
-patch_sklearn()
 
 __all__ = ['MNIST']
 
 class MNIST():
+    
+    class SparseCoding():
+        def __init__(self, sparse_weight_path):
+            net = torch.load(sparse_weight_path)
+            self.weight = net.U.weight.data
+            self.weight.requires_grad = False
+
+        def fit_transform(self, data):
+            return torch.matmul(data, self.weight).clone().detach()
+        
+        def inverse_transform(self, data):
+            return torch.matmul(data, self.weight.T).clone().detach()
+
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
@@ -25,8 +36,14 @@ class MNIST():
         train_data = torch.nn.functional.normalize(train_data, dim = 1)
         # plt.imshow(train_data[0].reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit.png")
-        self.pca = PCA(n_components=self.out_dim)
-        self.hidden_states = self.pca.fit_transform(train_data)
+        if self.args.filter == "pca":
+            self.ff_filter = PCA(n_components=self.out_dim) 
+        elif self.args.filter == "sparse":
+            self.ff_filter = self.SparseCoding(args.sparse_weight_path)
+        else:
+            raise NotImplementedError("Filter not implemented.")
+        
+        self.hidden_states = self.ff_filter.fit_transform(train_data)
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit_recovered.png")
@@ -84,7 +101,7 @@ class MNIST():
             samples = gen_sample(model, samples, 5000)
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
-            samples = self.pca.inverse_transform(samples).reshape(len(samples), 28, 28)
+            samples = self.ff_filter.inverse_transform(samples).reshape(len(samples), 28, 28)
             print(samples.shape)
             fig, axes = plt.subplots(2, 5)
             for i in range(2):
