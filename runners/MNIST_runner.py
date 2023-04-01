@@ -7,6 +7,8 @@ import logging
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import time
+# from sklearnex import patch_sklearn
+# patch_sklearn()
 
 __all__ = ['MNIST']
 

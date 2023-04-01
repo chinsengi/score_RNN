@@ -8,6 +8,13 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 
+def use_gpu(gpu_id: int=0):
+    num_of_gpus = torch.cuda.device_count()
+    if num_of_gpus>0: assert(gpu_id<num_of_gpus)
+    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
+    print(f"Using {device} device")
+    return device
+
 # load a model
 def load(path, model, optimizer=None):
     if os.path.exists(path):
@@ -238,13 +245,6 @@ def gen_sample(model, initial_state, length):
         # next = next + model.dt*model.score(next) + math.sqrt(2*model.dt)*torch.randn_like(next)
         next = model(next)
     return next
-
-def use_gpu(gpu_id: int=0):
-    num_of_gpus = torch.cuda.device_count()
-    if num_of_gpus>0: assert(gpu_id<num_of_gpus)
-    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
-    print(f"Using {device} device")
-    return device
 
 def requires_grad(parameters, flag=True):
     for p in parameters:
