@@ -1,9 +1,24 @@
-model/
 .pyc
 .ipynb_checkpoints/
 .vscode/
+.vscode-server/
+.wget-hsts
 __pycache__/
 data/FashionMNIST
 data/MNIST
 *.png
 run/
+
+# container
+*.cache
+*.dotnet
+*.hypothesis
+*.bash_history
+*.python_history
+
+# images
+*.sif
+
+# expeirments
+*model/
+*runs/

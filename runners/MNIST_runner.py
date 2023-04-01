@@ -39,14 +39,15 @@ class MNIST():
         model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
         # annealing noise
         n_level = 10
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [.015/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
         if self.args.resume:
-            load(f"./model/{self.args.run_id}/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
+            load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
+            model.set_weight()
         for epoch in tqdm(range(nepoch)):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
@@ -75,12 +76,12 @@ class MNIST():
         # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{360}", model)
 
         model.set_weight()
-        samples = (torch.randn([10, self.hid_dim])*10).to(self.device)
-        # samples = (torch.rand([10, self.out_dim])*20-10).to(self.device)
+        samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)/100
+        # samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
         with torch.no_grad():
-            model.dt = 1e-5
+            model.dt = 1e-6
             # samples = self.anneal_gen_sample(samples, 500)
-            samples = gen_sample(model, samples, 10000)
+            samples = gen_sample(model, samples, 5000)
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
             samples = self.pca.inverse_transform(samples).reshape(len(samples), 28, 28)

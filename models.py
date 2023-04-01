@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 import math
 from torch.autograd.functional import jacobian
@@ -152,3 +153,67 @@ class RNN(torch.nn.Module):
             jac = jacobian(self.forward, hidden_state[i], create_graph=True) 
             ans[i] = torch.linalg.slogdet(jac)[1]
         return ans
+
+class SparseNet(nn.Module):
+
+    def __init__(self, input_dim:int, hidden_dim:int, r_lr:float=0.1, lmda:float=5e-3, maxiter:int=500, device:torch.device=None):
+        super(SparseNet, self).__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.r_lr = r_lr
+        self.lmda = lmda
+        self.maxiter = maxiter
+        # device
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
+        self.U = nn.Linear(hidden_dim, input_dim, bias=False)
+        # responses
+        self.normalize_weights()
+
+    def inference(self, img_batch):
+        r = torch.zeros((img_batch.shape[0], self.hidden_dim), requires_grad=True, device=self.device)
+        converged = False
+        # SGD
+        optim = torch.optim.SGD([r], lr=self.r_lr)
+        # train
+        iter = 0
+        requires_grad(self.parameters(), False)
+        while not converged and iter < self.maxiter:
+            old_r = r.clone().detach()
+            # pred
+            pred = self.U(r)
+            # loss
+            loss = torch.pow(img_batch - pred, 2).sum(dim=1).mean()
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            # prox
+            r.data = SparseNet.soft_thresholding_(r, self.lmda)
+            # convergence
+            with torch.no_grad():
+                converged = torch.norm(r - old_r) / torch.norm(old_r) < 0.01
+            iter += 1
+        if iter == self.maxiter:
+            print("did not converge")
+        requires_grad(self.parameters(), True)
+        return r.clone().detach()
+
+    @staticmethod
+    def soft_thresholding_(x, alpha):
+        with torch.no_grad():
+            rtn = F.relu(x - alpha) - F.relu(-x - alpha)
+        return rtn.data
+
+    def normalize_weights(self):
+        with torch.no_grad():
+            self.U.weight.data = F.normalize(self.U.weight.data, dim=0)
+
+    def forward(self, img_batch):
+        # inference
+        r = self.inference(img_batch)
+        # print(np.count_nonzero(r[0].cpu().clone().detach().numpy()) / self.hidden_dim)
+        # now predict again
+        pred = self.U(r)
+        return pred
