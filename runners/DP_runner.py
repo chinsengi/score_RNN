@@ -2,7 +2,10 @@ import torch
 from utility import *
 from models import rand_RNN, FR
 import logging
-import tensorboardX
+try:
+    import tensorboardX
+except ModuleNotFoundError:
+    pass
 import matplotlib.pyplot as plt
 from data import UniformData, GMMData
 import numpy as np
