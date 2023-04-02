@@ -43,7 +43,7 @@ def savefig(path='./image', filename='image'):
 def create_dir(path='./model'):
     isExist = os.path.exists(path)
     if not isExist:
-        os.mkdir(path)
+        os.makedirs(path)
 
 # score for normal distribution
 def score_normal(h, mean, variance):
