@@ -8,7 +8,7 @@ from models import SparseNet
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
-from utility import plot_spatial_rf, plot_true_and_recon_img
+from utility import create_dir, plot_spatial_rf, plot_true_and_recon_img
 
 
 # save to tensorboard
@@ -24,8 +24,9 @@ arg.batch_size = 500
 arg.learning_rate = 0.05
 arg.epoch = 200
 
-train_board = SummaryWriter(f"runs/sparse-net-hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}-train")
-test_board = SummaryWriter(f"runs/sparse-net-hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}-test")
+hyperparam_str = f"hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}" 
+train_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-train")
+test_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-test")
 
 # if use cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,6 +48,9 @@ test_dataloader = torch.utils.data.DataLoader(
                              ])),
   batch_size=arg.batch_size, shuffle=True)
 
+# create ckpt folder
+ckpt_dir = "model/sparse" 
+create_dir(ckpt_dir)
 # train
 optim = torch.optim.SGD([{'params': sparse_net.U.weight, "lr": arg.learning_rate}])
 for e in range(arg.epoch):
@@ -86,6 +90,6 @@ for e in range(arg.epoch):
     test_board.add_figure('Recon', fig, global_step=e)
     if e % 10 == 9:
         # save checkpoint
-        torch.save(sparse_net, f"model/sparse-ckpt-{e+1}.pth")
+        torch.save(sparse_net, f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
 
-torch.save(sparse_net, f"model/sparse-ckpt-{e+1}.pth")
+torch.save(sparse_net, f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
