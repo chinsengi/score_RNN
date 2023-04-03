@@ -22,7 +22,7 @@ arg.maxiter = 500
 
 arg.batch_size = 500
 arg.learning_rate = 0.05
-arg.epoch = 200
+arg.epoch = 250
 
 hyperparam_str = f"hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}" 
 train_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-train")
@@ -56,7 +56,7 @@ optim = torch.optim.SGD([{'params': sparse_net.U.weight, "lr": arg.learning_rate
 for e in range(arg.epoch):
     running_loss_train = 0
     c = 0
-    for img_batch, _ in tqdm(train_dataloader, desc='training', total=len(train_dataloader)):
+    for img_batch, _ in tqdm(train_dataloader, desc='training', total=len(train_dataloader), dynamic_ncols=True):
         img_batch = img_batch.reshape(img_batch.shape[0], -1).to(device)
         # update
         pred = sparse_net(img_batch)
@@ -90,6 +90,6 @@ for e in range(arg.epoch):
     test_board.add_figure('Recon', fig, global_step=e)
     if e % 10 == 9:
         # save checkpoint
-        torch.save(sparse_net, f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
+        torch.save(sparse_net.state_dict(), f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
 
-torch.save(sparse_net, f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
+torch.save(sparse_net.state_dict(), f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
