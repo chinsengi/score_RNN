@@ -32,7 +32,7 @@ test_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-test")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # create net
 sparse_net = SparseNet(arg.input_dim, arg.hidden_dim, arg.r_lr, arg.lmda, arg.maxiter, device).to(device)
-# load data
+# load and normalize data
 train_dataloader = torch.utils.data.DataLoader(
   torchvision.datasets.MNIST('./data/', train=True, download=True,
                              transform=torchvision.transforms.Compose([

@@ -1,5 +1,6 @@
 .pyc
 .ipynb_checkpoints/
+.ipython
 .vscode/
 .vscode-server/
 .wget-hsts
@@ -13,8 +14,9 @@ run/
 *.cache
 *.dotnet
 *.hypothesis
-*.bash_history
+*.local
 *.python_history
+*.bash_history
 
 # images
 *.sif
