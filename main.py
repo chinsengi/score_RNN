@@ -62,7 +62,7 @@ def parse_args_and_config():
 
 def main():
     args = parse_args_and_config()
-    logging.info(f"Writing log file to {args.log}")
+    print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
     logging.info(args)
