@@ -17,6 +17,7 @@ def parse_args_and_config():
     parser.add_argument('--runner', type=str, default='Celegans', help='the experiment runner to execute')
     parser.add_argument('--run', type=str, default='run', help='Path for saving running related data.')
     parser.add_argument('--hid_dim', type=int, default=5000, help='number of hidden units used by the model')
+    parser.add_argument('--out_dim', type=int, default=300, help='dimension of output sample by the model')
     parser.add_argument('--resume', action='store_true', help='whether to train from the last checkpoint')
     parser.add_argument('--seed', type=int, default=3407, help='Random seed')
     parser.add_argument('--run_id', type=str, default='0', help='id used to identify different runs')
@@ -24,6 +25,8 @@ def parse_args_and_config():
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
+    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse')
+    parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', help='path to sparse filter weights trained on MNIST')
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()
@@ -44,7 +47,7 @@ def parse_args_and_config():
         handler2.setFormatter(formatter)
         handler1.setFormatter(formatter)
         logger = logging.getLogger()
-        # logger.addHandler(handler1)
+        # logger.addHandler(h
         logger.addHandler(handler2)
         logger.setLevel(level)
     else:

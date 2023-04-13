@@ -1,9 +1,9 @@
 import torch
 from utility import *
-from models import rand_RNN
+from models import rand_RNN, SparseNet
 import torchvision
 import logging
-import tensorboardX
+
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import time
@@ -13,20 +13,60 @@ import time
 __all__ = ['MNIST']
 
 class MNIST():
+    
+
+    class SparseCoding():
+        def __init__(self, sparse_weight_path, device, feature_dim=3136, batch_size=500):
+            # TODO: don't hard code this.
+            self.device = device
+            self.feature_dim = feature_dim
+            self.net = SparseNet(784, feature_dim, 0.75, 0.001, 500, device).to(device)
+            self.net.load_state_dict(torch.load(sparse_weight_path))
+            self.net.eval()
+            self.batch_size = batch_size
+
+        def fit_transform(self, data):
+
+            result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
+            indices = torch.arange(0, data.size(0), self.batch_size) 
+            for i in range(len(indices)):
+                start_idx = indices[i]
+                end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
+                data_batch = data[start_idx:end_idx].to(self.device)
+                result[start_idx:end_idx] = self.net.inference(data_batch).cpu()
+
+            return result.clone().detach()
+        
+        def inverse_transform(self, data):
+            data = data.to(self.device)
+            return self.net.U(data)
+
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        self.out_dim, self.hid_dim = 300, args.hid_dim
-        self.train_batch_size =  64 # Define train batch size
+        self.out_dim, self.hid_dim = args.out_dim, args.hid_dim
+        self.train_batch_size = 256 # Define train batch size
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
         train_data = train_data.data.to(torch.float32).reshape(len(train_data), -1)
-        train_data = torch.nn.functional.normalize(train_data, dim = 1)
+        # train_data = torch.nn.functional.normalize(train_data, dim = 1)
+        # to be consistent with the sparse training procedure
+        train_data = train_data / 255
+        train_data = (train_data - 0.1307) / 0.3081
         # plt.imshow(train_data[0].reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit.png")
-        self.pca = PCA(n_components=self.out_dim)
-        self.hidden_states = self.pca.fit_transform(train_data)
+        if self.args.filter == "pca":
+            self.ff_filter = PCA(n_components=self.out_dim) 
+        elif self.args.filter == "sparse":
+            self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
+            self.out_dim = self.ff_filter.feature_dim
+        else:
+            raise NotImplementedError("Filter not implemented.")
+        
+        print('before fitting')
+        self.hidden_states = self.ff_filter.fit_transform(train_data)
+        print('after fitting')
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit_recovered.png")
@@ -48,7 +88,7 @@ class MNIST():
         if self.args.resume:
             load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
             model.set_weight()
-        for epoch in tqdm(range(nepoch)):
+        for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
@@ -83,8 +123,9 @@ class MNIST():
             # samples = self.anneal_gen_sample(samples, 500)
             samples = gen_sample(model, samples, 5000)
             samples = model.W_out(samples)
-            samples = samples.detach().cpu().numpy()
-            samples = self.pca.inverse_transform(samples).reshape(len(samples), 28, 28)
+            samples = samples.detach()
+            samples = self.ff_filter.inverse_transform(samples).reshape(len(samples), 28, 28)
+            samples = samples.cpu().numpy()
             print(samples.shape)
             fig, axes = plt.subplots(2, 5)
             for i in range(2):

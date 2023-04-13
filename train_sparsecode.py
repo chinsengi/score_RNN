@@ -8,7 +8,7 @@ from models import SparseNet
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
-from utility import plot_spatial_rf, plot_true_and_recon_img
+from utility import create_dir, plot_spatial_rf, plot_true_and_recon_img
 
 
 # save to tensorboard
@@ -22,16 +22,17 @@ arg.maxiter = 500
 
 arg.batch_size = 500
 arg.learning_rate = 0.05
-arg.epoch = 200
+arg.epoch = 250
 
-train_board = SummaryWriter(f"runs/sparse-net-hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}-train")
-test_board = SummaryWriter(f"runs/sparse-net-hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}-test")
+hyperparam_str = f"hidden_dim-{arg.hidden_dim}-r_lr-{arg.r_lr}-lmda-{arg.lmda}-lr-{arg.learning_rate}" 
+train_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-train")
+test_board = SummaryWriter(f"run/sparse-net-{hyperparam_str}-test")
 
 # if use cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # create net
 sparse_net = SparseNet(arg.input_dim, arg.hidden_dim, arg.r_lr, arg.lmda, arg.maxiter, device).to(device)
-# load data
+# load and normalize data
 train_dataloader = torch.utils.data.DataLoader(
   torchvision.datasets.MNIST('./data/', train=True, download=True,
                              transform=torchvision.transforms.Compose([
@@ -47,12 +48,15 @@ test_dataloader = torch.utils.data.DataLoader(
                              ])),
   batch_size=arg.batch_size, shuffle=True)
 
+# create ckpt folder
+ckpt_dir = "model/sparse" 
+create_dir(ckpt_dir)
 # train
 optim = torch.optim.SGD([{'params': sparse_net.U.weight, "lr": arg.learning_rate}])
 for e in range(arg.epoch):
     running_loss_train = 0
     c = 0
-    for img_batch, _ in tqdm(train_dataloader, desc='training', total=len(train_dataloader)):
+    for img_batch, _ in tqdm(train_dataloader, desc='training', total=len(train_dataloader), dynamic_ncols=True):
         img_batch = img_batch.reshape(img_batch.shape[0], -1).to(device)
         # update
         pred = sparse_net(img_batch)
@@ -86,6 +90,6 @@ for e in range(arg.epoch):
     test_board.add_figure('Recon', fig, global_step=e)
     if e % 10 == 9:
         # save checkpoint
-        torch.save(sparse_net, f"model/sparse-ckpt-{e+1}.pth")
+        torch.save(sparse_net.state_dict(), f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")
 
-torch.save(sparse_net, f"model/sparse-ckpt-{e+1}.pth")
+torch.save(sparse_net.state_dict(), f"{ckpt_dir}/sparse-{hyperparam_str}-ckpt-{e+1}.pth")

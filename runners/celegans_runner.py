@@ -4,7 +4,10 @@ from models import rand_RNN
 from torch.utils.data import Dataset
 import shutil
 import logging
-import tensorboardX
+try:
+    import tensorboardX
+except ModuleNotFoundError:
+    pass
 import numpy as np
 import matplotlib.pyplot as plt
 from data import CelegansData
