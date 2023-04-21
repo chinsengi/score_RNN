@@ -18,7 +18,7 @@ def use_gpu(gpu_id: int=0):
 # load a model
 def load(path, model, optimizer=None):
     if os.path.exists(path):
-        state = torch.load(path)
+        state = torch.load(path, map_location=torch.device('cpu'))
         model.load_state_dict(state[0])
         if optimizer is not None:
             optimizer.load_state_dict(state[1])
