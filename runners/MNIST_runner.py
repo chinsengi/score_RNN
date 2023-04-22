@@ -45,7 +45,7 @@ class MNIST():
         self.args = args
         self.device = args.device
         self.out_dim, self.hid_dim = args.out_dim, args.hid_dim
-        self.train_batch_size = 256 # Define train batch size
+        self.train_batch_size = 32 # Define train batch size
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
@@ -56,17 +56,21 @@ class MNIST():
         train_data = (train_data - 0.1307) / 0.3081
         # plt.imshow(train_data[0].reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit.png")
-        if self.args.filter == "pca":
-            self.ff_filter = PCA(n_components=self.out_dim) 
-        elif self.args.filter == "sparse":
-            self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
-            self.out_dim = self.ff_filter.feature_dim
-        else:
-            raise NotImplementedError("Filter not implemented.")
+        if self.args.filter != "none":
+            if self.args.filter == "pca":
+                self.ff_filter = PCA(n_components=self.out_dim) 
+            elif self.args.filter == "sparse":
+                self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
+                self.out_dim = self.ff_filter.feature_dim
+            else:
+                raise NotImplementedError("Filter not implemented.")
         
-        print('before fitting')
-        self.hidden_states = self.ff_filter.fit_transform(train_data)
-        print('after fitting')
+            print('before fitting')
+            self.hidden_states = self.ff_filter.fit_transform(train_data)
+            print('after fitting')
+        else:
+            self.hidden_states = train_data
+            self.out_dim = len(train_data[0])
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit_recovered.png")
@@ -79,7 +83,7 @@ class MNIST():
         model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
         # annealing noise
         n_level = 10
-        noise_levels = [.015/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
