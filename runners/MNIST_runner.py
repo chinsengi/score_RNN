@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN, SparseNet
+from models import rand_RNN, SparseNet, FR
 import torchvision
 import logging
 
@@ -45,7 +45,7 @@ class MNIST():
         self.args = args
         self.device = args.device
         self.out_dim, self.hid_dim = args.out_dim, args.hid_dim
-        self.train_batch_size = 32 # Define train batch size
+        self.train_batch_size = 128 # Define train batch size
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
@@ -54,8 +54,10 @@ class MNIST():
         # to be consistent with the sparse training procedure
         train_data = train_data / 255
         train_data = (train_data - 0.1307) / 0.3081
-        # plt.imshow(train_data[0].reshape([28,28]))
+        # plt.imshow(train_data[0].reshape([28,28]) + torch.randn([28,28])*0.1)
         # savefig(path="./image/MNIST", filename="_digit.png")
+
+        # apply filter
         if self.args.filter != "none":
             if self.args.filter == "pca":
                 self.ff_filter = PCA(n_components=self.out_dim) 
@@ -77,27 +79,33 @@ class MNIST():
         # logging.info(self.hidden_states.shape)
 
     def train(self):
-        train_dataset = torch.utils.data.TensorDataset(torch.tensor(self.hidden_states))
+        train_dataset = torch.utils.data.TensorDataset(self.hidden_states)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.train_batch_size, shuffle=True)
         
-        model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
+        # model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
+        model = self.set_model()
+        model.apply(model.init_weights)
         # annealing noise
         n_level = 10
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [.1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
         # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+
+        # load weights
         if self.args.resume:
             load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
-            model.set_weight()
+            # model.set_weight()
+
         for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{model.__class__.__name__}_MNIST_ep{epoch}")
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
+
             for h in train_loader:
                 # print(batchId)
                 h = h[0].to(self.device, torch.float32)
@@ -114,22 +122,26 @@ class MNIST():
 
 
     def test(self):
-        model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
-
-        load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
-        # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{360}", model)
-
-        model.set_weight()
-        samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)/100
-        # samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
         with torch.no_grad():
+            model = rand_RNN(self.hid_dim, self.out_dim)
+
+            load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
+            # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{650}", model)
+
+            model.set_weight()
+            # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
+            samples = torch.pinverse(model.W_out.weight)
+            samples = (self.hidden_states[:10]@samples.T).to(self.device)
+            # samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
             model.dt = 1e-6
+            model = model.to(self.device)
             # samples = self.anneal_gen_sample(samples, 500)
-            samples = gen_sample(model, samples, 5000)
+            samples = gen_sample(model, samples, 10000)
             samples = model.W_out(samples)
             samples = samples.detach()
-            samples = self.ff_filter.inverse_transform(samples).reshape(len(samples), 28, 28)
-            samples = samples.cpu().numpy()
+            if self.args.filter != "none":
+                samples = self.ff_filter.inverse_transform(samples)
+            samples = samples.reshape(len(samples), 28, 28).cpu().numpy()
             print(samples.shape)
             fig, axes = plt.subplots(2, 5)
             for i in range(2):
@@ -149,3 +161,15 @@ class MNIST():
                 model.set_weight()
             next = model(next)
         return next
+    
+    def set_model(self):
+        if self.args.model == "SR":
+            print("Using reservoir-sampler arch")
+            model = rand_RNN(self.args.hid_dim, self.args.out_dim)
+        elif self.args.model == "SO":
+            print("Using sampler-only arch")
+            model = FR(self.args.out_dim)
+        else:
+            return None
+
+        return model.to(self.device)
