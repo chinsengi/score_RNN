@@ -68,6 +68,11 @@ class FR(torch.nn.Module):
     def set_weight(self):
         pass
 
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            # init.constant_(m.bias, 0)
+
 class rand_RNN(torch.nn.Module):
     def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001):
         super().__init__()
@@ -79,8 +84,8 @@ class rand_RNN(torch.nn.Module):
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        self.non_lin = nn.LeakyReLU(0.1)
-        # self.non_lin = nn.ReLU()
+        # self.non_lin = nn.LeakyReLU(0.1)
+        self.non_lin = nn.ReLU()
         self.dt = dt
 
         self.Win = nn.Sequential(

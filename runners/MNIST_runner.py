@@ -55,7 +55,7 @@ class MNIST():
         train_data = train_data / 255
         train_data = (train_data - 0.1307) / 0.3081
         # plt.imshow(train_data[0].reshape([28,28]) + torch.randn([28,28])*0.1)
-        # savefig(path="./image/MNIST", filename="_digit.png")
+        # savefig(path="./image/MNIST", filename="_digit")
 
         # apply filter
         if self.args.filter != "none":
@@ -75,16 +75,16 @@ class MNIST():
             self.out_dim = len(train_data[0])
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
-        # savefig(path="./image/MNIST", filename="_digit_recovered.png")
+        # savefig(path="./image/MNIST", filename="_digit_recovered")
         # logging.info(self.hidden_states.shape)
 
     def train(self):
-        train_dataset = torch.utils.data.TensorDataset(self.hidden_states)
+        train_dataset = torch.utils.data.TensorDataset(torch.tensor(self.hidden_states))
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.train_batch_size, shuffle=True)
         
         # model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
         model = self.set_model()
-        model.apply(model.init_weights)
+        # model.apply(model.init_weights)
         # annealing noise
         n_level = 10
         noise_levels = [.1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
@@ -123,32 +123,36 @@ class MNIST():
 
     def test(self):
         with torch.no_grad():
-            model = rand_RNN(self.hid_dim, self.out_dim)
+            model = self.set_model()
 
             load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
             # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{650}", model)
 
             model.set_weight()
             # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
-            samples = torch.pinverse(model.W_out.weight)
-            samples = (self.hidden_states[:10]@samples.T).to(self.device)
-            # samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
+            if self.args.filter == "none":
+                samples = torch.pinverse(model.W_out.weight)
+                samples = (self.hidden_states[:10]@samples.T).to(self.device)
+            elif self.args.model=="SO":
+                samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
+            elif self.args.model == "SR":
+                samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)/1000
             model.dt = 1e-6
             model = model.to(self.device)
             # samples = self.anneal_gen_sample(samples, 500)
             samples = gen_sample(model, samples, 10000)
             samples = model.W_out(samples)
-            samples = samples.detach()
+            samples = samples.detach().cpu().numpy()
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
-            samples = samples.reshape(len(samples), 28, 28).cpu().numpy()
+            samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
             fig, axes = plt.subplots(2, 5)
             for i in range(2):
                 for j in range(5):
                     ax = axes[i,j]
                     ax.imshow(samples[i*5+j])
-            savefig(path="./image/MNIST", filename="_digit_sampled.png")
+            savefig(path="./image/MNIST", filename=self.args.model+"_digit_sampled")
 
     def anneal_gen_sample(self, initial_state, length):
         next = initial_state
