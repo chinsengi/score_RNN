@@ -6,7 +6,7 @@ from torch.nn.parameter import Parameter
 import math
 from torch.autograd.functional import jacobian
 from utility import *
-
+import torch.nn.init as init
 
 class MLP(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim=32, nlayer=2):
@@ -40,10 +40,10 @@ class FR(torch.nn.Module):
         self.hid_dim = hid_dim
         self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
         self.W = nn.Linear(hid_dim, hid_dim, bias=True)
-        self.W2 = nn.Linear(hid_dim, hid_dim, bias=True)
-        # self.W_out = nn.Linear(hid_dim, out_dim, bias = True)
-        self.non_lin = torch.relu
+        self.W_out = nn.Identity()
+        self.non_lin = nn.ReLU()
         self.dt = dt
+        self.is_set_weight=True
 
     def forward(self, input):
         v = self.score(input)
@@ -58,12 +58,20 @@ class FR(torch.nn.Module):
     def score(self, input): 
         input_trans = self.non_lin(input)
         v = self.W(input_trans)
-        v = v - torch.diag(self.W.weight)*input_trans
+        # v = v - torch.diag(self.W.weight)*input_trans
         # v = self.W(input)
         # v = self.W(torch.tanh(v))
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)
         v = v - self.gamma.T*input
         return v
+    
+    def set_weight(self):
+        pass
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            # init.constant_(m.bias, 0)
 
 class rand_RNN(torch.nn.Module):
     def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001):
@@ -76,17 +84,18 @@ class rand_RNN(torch.nn.Module):
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        self.non_lin = torch.relu
+        # self.non_lin = nn.LeakyReLU(0.1)
+        self.non_lin = nn.ReLU()
         self.dt = dt
 
         self.Win = nn.Sequential(
             nn.Linear(in_dim, hid_dim),
-            nn.Softplus(),
+            nn.ReLU(),
             nn.Linear(hid_dim, out_dim),
         )
         self.Win_rec = nn.Sequential(
             nn.Linear(in_dim, hid_dim*2),
-            nn.Softplus(),
+            nn.ReLU(),
             nn.Linear(hid_dim*2, hid_dim),
         )
 
@@ -127,6 +136,13 @@ class rand_RNN(torch.nn.Module):
         x = self.Win(x)
         wout = self.W_out.weight
         return (0.5*wout@wout.T@x.T).T
+    
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            # init.constant_(m.bias, 0)
+
+
 
 class RNN(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim):

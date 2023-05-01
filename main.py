@@ -25,8 +25,9 @@ def parse_args_and_config():
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
-    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse')
+    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | none')
     parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', help='path to sparse filter weights trained on MNIST')
+    parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) | SO (Sampler-only)")
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()
@@ -44,18 +45,20 @@ def parse_args_and_config():
         handler1 = logging.StreamHandler()
         handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
         formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-        handler2.setFormatter(formatter)
         handler1.setFormatter(formatter)
+        handler2.setFormatter(formatter)
         logger = logging.getLogger()
-        # logger.addHandler(h
         logger.addHandler(handler2)
         logger.setLevel(level)
     else:
         handler1 = logging.StreamHandler()
+        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
         formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
         handler1.setFormatter(formatter)
+        handler2.setFormatter(formatter)
         logger = logging.getLogger()
         logger.addHandler(handler1)
+        logger.addHandler(handler2)
         logger.setLevel(level)
  
     return args

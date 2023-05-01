@@ -37,7 +37,7 @@ def savefig(path='./image', filename='image'):
     create_dir(path)
     t = time.localtime()
     current_time = time.strftime("%H:%M:%S", t)
-    plt.savefig(os.path.join(path, current_time + filename))
+    plt.savefig(os.path.join(path, current_time + filename), dpi=300, format='svg')
     
 # create directory
 def create_dir(path='./model'):
