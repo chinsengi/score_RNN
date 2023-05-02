@@ -45,7 +45,7 @@ class MNIST():
         self.args = args
         self.device = args.device
         self.out_dim, self.hid_dim = args.out_dim, args.hid_dim
-        self.train_batch_size = 128 # Define train batch size
+        self.train_batch_size = 64 # Define train batch size
 
         #MNIST data_matrix used for PCA
         train_data = torchvision.datasets.MNIST('./data/', train=True, download=True)
@@ -60,19 +60,24 @@ class MNIST():
         # apply filter
         if self.args.filter != "none":
             if self.args.filter == "pca":
+                logging.info("using PCA filter")
                 self.ff_filter = PCA(n_components=self.out_dim) 
             elif self.args.filter == "sparse":
+                logging.info("using sparse filter")
                 self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
                 self.out_dim = self.ff_filter.feature_dim
             else:
                 raise NotImplementedError("Filter not implemented.")
         
-            print('before fitting')
+            logging.info('begin fitting')
             self.hidden_states = self.ff_filter.fit_transform(train_data)
-            print('after fitting')
+            logging.info('fitting complete')
         else:
             self.hidden_states = train_data
             self.out_dim = len(train_data[0])
+
+        # self.std = np.sqrt(np.var(self.hidden_states, axis=0))
+        # self.hidden_states = self.hidden_states/self.std
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
         # savefig(path="./image/MNIST", filename="_digit_recovered")
@@ -82,12 +87,11 @@ class MNIST():
         train_dataset = torch.utils.data.TensorDataset(torch.tensor(self.hidden_states))
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.train_batch_size, shuffle=True)
         
-        # model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
         model = self.set_model()
         # model.apply(model.init_weights)
         # annealing noise
         n_level = 10
-        noise_levels = [.1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -97,14 +101,14 @@ class MNIST():
         # load weights
         if self.args.resume:
             load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
-            # model.set_weight()
+            model.set_weight()
 
         for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{model.__class__.__name__}_MNIST_ep{epoch}")
-                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
 
             for h in train_loader:
                 # print(batchId)
@@ -125,8 +129,8 @@ class MNIST():
         with torch.no_grad():
             model = self.set_model()
 
-            load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
-            # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{650}", model)
+            # load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
+            load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{280}", model)
 
             model.set_weight()
             # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
@@ -143,6 +147,7 @@ class MNIST():
             samples = gen_sample(model, samples, 10000)
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
+            # samples = samples*self.std
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
             samples = samples.reshape(len(samples), 28, 28)
@@ -160,7 +165,7 @@ class MNIST():
         
         for i in range(length):
             if i % (length//n_level) ==0:
-                model = rand_RNN(self.hid_dim, self.out_dim).to(self.device)
+                model = self.set_model()
                 load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{(i//(length//n_level))*40}", model)
                 model.set_weight()
             next = model(next)

@@ -33,11 +33,11 @@ def save(model, optimizer, path, filename):
     ]
     torch.save(states, os.path.join(path, filename))
 
-def savefig(path='./image', filename='image'):
+def savefig(path='./image', filename='image', format='png'):
     create_dir(path)
     t = time.localtime()
     current_time = time.strftime("%H:%M:%S", t)
-    plt.savefig(os.path.join(path, current_time + filename), dpi=300, format='svg')
+    plt.savefig(os.path.join(path, current_time + filename+'.'+format), dpi=300, format=format)
     
 # create directory
 def create_dir(path='./model'):
