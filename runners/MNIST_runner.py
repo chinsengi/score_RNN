@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN, SparseNet, FR
+from models import rand_RNN, SparseNet, FR, Autoencoder
 import torchvision
 import logging
 
@@ -12,34 +12,59 @@ import time
 
 __all__ = ['MNIST']
 
-class MNIST():
+class SCFilter():
+    def __init__(self, sparse_weight_path, device, feature_dim=3136, batch_size=500):
+        # TODO: don't hard code this.
+        self.device = device
+        self.feature_dim = feature_dim
+        self.net = SparseNet(784, feature_dim, 0.75, 0.001, 500, device).to(device)
+        self.net.load_state_dict(torch.load(sparse_weight_path))
+        self.net.eval()
+        self.batch_size = batch_size
+
+    def fit_transform(self, data):
+
+        result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
+        indices = torch.arange(0, data.size(0), self.batch_size) 
+        for i in range(len(indices)):
+            start_idx = indices[i]
+            end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
+            data_batch = data[start_idx:end_idx].to(self.device)
+            result[start_idx:end_idx] = self.net.inference(data_batch).cpu()
+
+        return result.clone().detach()
     
+    def inverse_transform(self, data):
+        data = data.to(self.device)
+        return self.net.U(data)
 
-    class SparseCoding():
-        def __init__(self, sparse_weight_path, device, feature_dim=3136, batch_size=500):
-            # TODO: don't hard code this.
-            self.device = device
-            self.feature_dim = feature_dim
-            self.net = SparseNet(784, feature_dim, 0.75, 0.001, 500, device).to(device)
-            self.net.load_state_dict(torch.load(sparse_weight_path))
-            self.net.eval()
-            self.batch_size = batch_size
+class AEFilter():
+    def __init__(self, ae_weight_path, device, feature_dim=32, batch_size=500):
+        self.device = device
+        self.feature_dim = feature_dim
+        self.net = Autoencoder(feature_dim).to(device)
+        self.net.load_state_dict(torch.load(ae_weight_path))
+        # this is processing the training set
+        self.net.train()
+        self.batch_size = batch_size
+    
+    def fit_transform(self, data):
+        result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
+        indices = torch.arange(0, data.size(0), self.batch_size) 
+        for i in range(len(indices)):
+            start_idx = indices[i]
+            end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
+            data_batch = data[start_idx:end_idx].reshape(-1, 1, 28, 28).to(self.device)
+            result[start_idx:end_idx] = self.net.encoder(data_batch).cpu()
 
-        def fit_transform(self, data):
+        return result.clone().detach()
 
-            result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
-            indices = torch.arange(0, data.size(0), self.batch_size) 
-            for i in range(len(indices)):
-                start_idx = indices[i]
-                end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
-                data_batch = data[start_idx:end_idx].to(self.device)
-                result[start_idx:end_idx] = self.net.inference(data_batch).cpu()
+    def inverse_transform(self, data):
+        data = data.to(self.device)
+        return self.net.decoder(data)
 
-            return result.clone().detach()
-        
-        def inverse_transform(self, data):
-            data = data.to(self.device)
-            return self.net.U(data)
+
+class MNIST():
 
     def __init__(self, args) -> None:
         self.args = args
@@ -62,14 +87,17 @@ class MNIST():
             if self.args.filter == "pca":
                 self.ff_filter = PCA(n_components=self.out_dim) 
             elif self.args.filter == "sparse":
-                self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
+                self.ff_filter = SCFilter(args.sparse_weight_path, self.device)
                 self.out_dim = self.ff_filter.feature_dim
+                self.args.out_dim = self.out_dim
+            elif self.args.filter == "ae":
+                self.ff_filter = AEFilter(args.ae_weight_path, self.device)
+                self.out_dim = self.ff_filter.feature_dim
+                self.args.out_dim = self.out_dim
             else:
                 raise NotImplementedError("Filter not implemented.")
         
-            print('before fitting')
             self.hidden_states = self.ff_filter.fit_transform(train_data)
-            print('after fitting')
         else:
             self.hidden_states = train_data
             self.out_dim = len(train_data[0])
@@ -87,7 +115,7 @@ class MNIST():
         # model.apply(model.init_weights)
         # annealing noise
         n_level = 10
-        noise_levels = [.1/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
+        noise_levels = [.5/math.exp(math.log(10)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -137,14 +165,14 @@ class MNIST():
                 samples = (torch.rand([10, self.out_dim])-.5).to(self.device)/1000
             elif self.args.model == "SR":
                 samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)/1000
-            model.dt = 1e-6
+            model.dt = 1e-5
             model = model.to(self.device)
             # samples = self.anneal_gen_sample(samples, 500)
-            samples = gen_sample(model, samples, 10000)
+            samples = gen_sample(model, samples, 15000)
             samples = model.W_out(samples)
-            samples = samples.detach().cpu().numpy()
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
+            samples = samples.detach().cpu().numpy()
             samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
             fig, axes = plt.subplots(2, 5)
@@ -152,7 +180,7 @@ class MNIST():
                 for j in range(5):
                     ax = axes[i,j]
                     ax.imshow(samples[i*5+j])
-            savefig(path="./image/MNIST", filename=self.args.model+"_digit_sampled")
+            savefig(path="./image/MNIST", filename=self.args.model+"_digit_sampled.svg")
 
     def anneal_gen_sample(self, initial_state, length):
         next = initial_state

@@ -233,3 +233,60 @@ class SparseNet(nn.Module):
         # now predict again
         pred = self.U(r)
         return pred
+
+    
+class Autoencoder(nn.Module):
+
+    def __init__(self, hidden_dim):
+        super(Autoencoder, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.Sequential(
+            # 1 x 28 x 28
+            nn.Conv2d(1, 16, kernel_size=5),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 24 x 24
+            nn.Conv2d(16, 16, kernel_size=5),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 20 x 20 = 3200
+            nn.Conv2d(16, 16, kernel_size=4, stride=2),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 9 x 9 
+            nn.Conv2d(16, 10, kernel_size=4),
+            nn.BatchNorm2d(10),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(10 * 6 * 6, 64),
+            nn.ReLU(),
+            nn.Linear(64, self.hidden_dim),
+        )
+        self.decoder = nn.Sequential(
+            # 10
+            nn.Linear(self.hidden_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 10 * 6 * 6),
+            nn.ReLU(),
+            nn.Unflatten(1, (10, 6, 6)),
+
+            # 10 x 6 x 6 
+            nn.ConvTranspose2d(10, 16, kernel_size=4),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 9 x 9
+            nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 20 x 20
+            nn.ConvTranspose2d(16, 16, kernel_size=5),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            # 16 x 24 x 24
+            nn.ConvTranspose2d(16, 1, kernel_size=5),
+        ) 
+
+    def forward(self, x):
+        enc = self.encoder(x)
+        dec = self.decoder(enc)
+        return dec
