@@ -26,8 +26,10 @@ def parse_args_and_config():
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
     parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | none')
-    parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', help='path to sparse filter weights trained on MNIST')
-    parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) | SO (Sampler-only)")
+    parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', \
+                        help='path to sparse filter weights trained on MNIST')
+    parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
+                         SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()

@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN, SparseNet, FR
+from models import rand_RNN, SparseNet, NeuralDyn
 import torchvision
 import logging
 
@@ -91,12 +91,12 @@ class MNIST():
         # model = rand_RNN(self.args.hid_dim, self.args.out_dim).to(self.device)
         # model.apply(model.init_weights)
         # annealing noise
-        n_level = 10
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        n_level = 20
+        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
         # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
         # load weights
@@ -109,7 +109,7 @@ class MNIST():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{model.__class__.__name__}_MNIST_ep{epoch}")
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
 
             for h in train_loader:
                 # print(batchId)
@@ -127,21 +127,21 @@ class MNIST():
 
 
     def test(self):
-        model = self.set_model()
-
-        load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
-        # load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{280}", model)
-
-        model.set_weight()
-        # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
-        # if self.args.filter == "none":
-        #     samples = torch.pinverse(model.W_out.weight)
-        #     samples = (self.hidden_states[:10]@samples.T).to(self.device)
-        if self.args.model=="SO":
-            samples = (torch.randn([10, self.out_dim])).to(self.device)/1000
-        elif self.args.model == "SR":
-            samples = (torch.randn([10, self.hid_dim])).to(self.device)/1000
         with torch.no_grad():
+            model = self.set_model()
+
+            # load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
+            load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{700}", model)
+
+            model.set_weight()
+            # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
+            # if self.args.filter == "none":
+            #     samples = torch.pinverse(model.W_out.weight)
+            #     samples = (self.hidden_states[:10]@samples.T).to(self.device)
+            if self.args.model=="SO":
+                samples = (torch.randn([100, self.out_dim])).to(self.device)/1000
+            elif self.args.model == "SR":
+                samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
             model.dt = 1e-6
             model = model.to(self.device)
             # samples = self.anneal_gen_sample(samples, 500)
@@ -153,11 +153,15 @@ class MNIST():
                 samples = self.ff_filter.inverse_transform(samples)
             samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
-            fig, axes = plt.subplots(2, 5)
-            for i in range(2):
-                for j in range(5):
+            nrow = 10
+            ncol = 10
+            fig, axes = plt.subplots(nrow, ncol)
+            fig.subplots_adjust(hspace=0.05, wspace=0.005)
+            for i in range(nrow):
+                for j in range(ncol):
                     ax = axes[i,j]
-                    ax.imshow(samples[i*5+j])
+                    ax.imshow(samples[i*ncol+j], cmap='gray')
+                    ax.axis('off')
             savefig(path="./image/MNIST", filename=self.args.model+"_digit_sampled")
 
     def anneal_gen_sample(self, initial_state, length):
@@ -176,9 +180,12 @@ class MNIST():
         if self.args.model == "SR":
             print("Using reservoir-sampler arch")
             model = rand_RNN(self.args.hid_dim, self.args.out_dim)
-        elif self.args.model == "SO":
-            print("Using sampler-only arch")
-            model = FR(self.args.out_dim)
+        elif self.args.model == "SO_SC":
+            print("Using sampler-only arch with synaptic current dynamics")
+            model = NeuralDyn(self.args.out_dim)
+        elif self.args.model == "SO_FR":
+            print("Using sampler-only arch with firing rate dynamics")
+            model = NeuralDyn(self.args.out_dim, synap=False)
         else:
             return None
 
