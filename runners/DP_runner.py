@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN, FR
+from models import rand_RNN, NeuralDyn
 import logging
 try:
     import tensorboardX
@@ -105,9 +105,12 @@ class DP():
         if self.args.model == "SR":
             print("Using reservoir-sampler arch")
             model = rand_RNN(self.args.hid_dim, 1)
-        elif self.args.model == "SO":
-            print("Using sampler-only arch")
-            model = FR(1)
+        elif self.args.model == "SO_SC":
+            print("Using sampler-only arch with synaptic current dynamics")
+            model = NeuralDyn(1)
+        elif self.args.model == "SO_FR":
+            print("Using sampler-only arch with firing rate dynamics")
+            model = NeuralDyn(1, synap=False)
         else:
             return None
 

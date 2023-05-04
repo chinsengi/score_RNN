@@ -32,9 +32,9 @@ class MLP(torch.nn.Module):
         return self.w_out(x)
 
 '''
-vanilla firing rate model of RNN, without output layer
+vanilla synaptic current model of RNN, without output layer
 '''
-class FR(torch.nn.Module):
+class SynCurrentDyn(torch.nn.Module):
     def __init__(self, hid_dim, dt=0.001):
         super().__init__()
         self.hid_dim = hid_dim
@@ -63,6 +63,46 @@ class FR(torch.nn.Module):
         # v = self.W(torch.tanh(v))
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)
         v = v - self.gamma.T*input
+        return v
+    
+    def set_weight(self):
+        pass
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            # init.constant_(m.bias, 0)
+
+'''
+vanilla synaptic current & firing rate model of RNN, without output layer
+'''
+class NeuralDyn(torch.nn.Module):
+    def __init__(self, hid_dim, synap=True, dt=0.001):
+        super().__init__()
+        self.hid_dim = hid_dim
+        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
+        self.sig = Parameter(torch.zeros(hid_dim, hid_dim, requires_grad=True))
+        self.W = nn.Linear(hid_dim, hid_dim, bias=True)
+        self.W_out = nn.Identity()
+        self.non_lin = nn.ReLU()
+        self.dt = dt
+        self.synap = synap # if the dynamics is synaptic current or not (firing rate dynamics)
+        self.is_set_weight=True
+
+    def forward(self, input):
+        v = self.score(input)
+        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
+
+    def score(self, input): 
+        if self.synap:
+            input_trans = self.non_lin(input)
+            v = self.W(input_trans)
+        else:
+            input_trans = self.W(input)
+            v = self.non_lin(input_trans)
+        v = v - self.gamma.T*input
+        if not self.synap:
+            v = self.sig.T@self.sig@v
         return v
     
     def set_weight(self):
