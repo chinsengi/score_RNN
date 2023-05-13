@@ -100,9 +100,9 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        v = v - self.gamma.T*input
+        # v = v - self.gamma.T*input
         if not self.synap:
-            v = self.sig.T@self.sig@v
+            v = v@self.sig@self.sig.T
         return v
     
     def set_weight(self):
@@ -124,8 +124,8 @@ class rand_RNN(torch.nn.Module):
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        # self.non_lin = nn.LeakyReLU(0.1)
-        self.non_lin = torch.relu
+        self.non_lin = nn.LeakyReLU(0.1)
+        # self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
         self.Win = nn.Sequential(
@@ -148,8 +148,8 @@ class rand_RNN(torch.nn.Module):
     def set_weight(self):
         W_rec_tilde = self.W2.weight
         self.W_out.weight = self.W1.weight
-        self.sig = Parameter(torch.linalg.solve(self.W1.weight@\
-            self.W1.weight.T, self.W1.weight.T, left=False))
+        self.sig = torch.linalg.solve(self.W1.weight@\
+            self.W1.weight.T, self.W1.weight.T, left=False)
         self.W_rec.weight = Parameter(W_rec_tilde@self.W1.weight)
         self.W_rec.bias = Parameter(self.W2.bias)
         self.is_set_weight = True

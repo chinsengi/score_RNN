@@ -121,8 +121,8 @@ class MNIST():
         # model = rand_RNN(self.args.hid_dim, self.args.out_dim).to(self.device)
         # model.apply(model.init_weights)
         # annealing noise
-        n_level = 20
-        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
+        n_level = self.args.noise_level
+        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -131,14 +131,14 @@ class MNIST():
 
         # load weights
         if self.args.resume:
-            load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
+            load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model, optimizer)
             model.set_weight()
 
         for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{model.__class__.__name__}_MNIST_ep{epoch}")
+                save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{self.args.model}_MNIST_ep{epoch}")
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
 
             for h in train_loader:
@@ -153,35 +153,36 @@ class MNIST():
                 optimizer.step()
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        save(model, optimizer, f"./model/MNIST/", f"{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}")
+        save(model, optimizer, f"./model/MNIST/", f"{self.args.model}_MNIST_chkpt{self.args.run_id}")
 
 
     def test(self):
         with torch.no_grad():
             model = self.set_model()
-
-            # load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
-            load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{700}", model)
-
+            load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
+            # load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{700}", model)
             model.set_weight()
-            # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
+
+            samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
             # if self.args.filter == "none":
             #     samples = torch.pinverse(model.W_out.weight)
             #     samples = (self.hidden_states[:10]@samples.T).to(self.device)
-            if self.args.model=="SO":
+            if self.args.model=="SO_FR" or self.args.model=="SO_SC":
                 samples = (torch.randn([100, self.out_dim])).to(self.device)/1000
             elif self.args.model == "SR":
                 samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
             model.dt = 1e-6
             model = model.to(self.device)
-            # samples = self.anneal_gen_sample(samples, 500)
-            samples = gen_sample(model, samples, 15000)
+            samples = self.anneal_gen_sample(model, samples, 5000)
+            # samples = gen_sample(model, samples, 10000)
             samples = model.W_out(samples)
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
             samples = samples.detach().cpu().numpy()
             samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
+
+            # plot samples
             nrow = 10
             ncol = 10
             fig, axes = plt.subplots(nrow, ncol)
@@ -189,18 +190,20 @@ class MNIST():
             for i in range(nrow):
                 for j in range(ncol):
                     ax = axes[i,j]
-                    ax.imshow(samples[i*ncol+j], cmap='gray')
+                    # ax.imshow(samples[i*ncol+j], cmap='gray')
+                    ax.imshow(samples[i*ncol+j])
                     ax.axis('off')
             savefig(path="./image/MNIST", filename=self.args.model+"_digit_sampled")
 
-    def anneal_gen_sample(self, initial_state, length):
+    def anneal_gen_sample(self, model, initial_state, length):
         next = initial_state
-        n_level = 10
+        n_level = self.args.noise_level
+        step = self.args.nepochs//n_level
+        T = length//n_level
         
         for i in range(length):
-            if i % (length//n_level) ==0:
-                model = self.set_model()
-                load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{(i//(length//n_level))*40}", model)
+            if i % T ==0:
+                load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{(i//T)*step}", model)
                 model.set_weight()
             next = model(next)
         return next

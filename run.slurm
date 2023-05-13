@@ -6,53 +6,45 @@
 #SBATCH --account=amath
 # SBATCH --partition=gpu-rtx6k 
 #SBATCH --partition=ckpt
-#SBATCH --nodes=1
+#SBATCH --nodes=3
 #SBATCH --mem=40G
 #SBATCH --gres=gpu:1
 
 #SBATCH --chdir=.
 
 TEST_ONLY=false
-TEST_ONLY=true
-RUN="MNIST"
-# RUN="DP"
+# TEST_ONLY=true
+RUN="DP"
+# RUN="MNIST"
 # Your programs to run.
+
+declare -a run_ids=("2" "1" "0")
+declare -a models=("SO_SC" "SO_FR" "SR")
+
 if [ "$RUN" = "DP" ]; then
     echo "DP experiment"
-    if [ "$TEST_ONLY" = true ]; then
-        echo "TEST_ONLY"
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --model SO_SC --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --model SO_FR --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 0 --hid_dim 500 --model SR --test &
-    else
-        echo "TRAINING AND TESTING"
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --nepochs 400 --model SO_SC &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --nepochs 400 --model SO_FR &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 0 --hid_dim 500 --nepochs 400 --model SR &
-        wait
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --model SO_FR --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 1 --hid_dim 500 --model SO_SC --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner DP --run_id 0 --hid_dim 500 --model SR --test &
-    fi
+    hid_dim=500
+    nepochs=1000
 elif [ "$RUN" = "MNIST" ]; then
     echo "MNIST experiment"
-    if [ "$TEST_ONLY" = true ]; then
-        echo "TEST_ONLY"
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000  --model SO_FR --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000  --model SO_SC --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 0 --hid_dim 20000  --model SR --test &
-    else
-        echo "TRAINING AND TESTING"
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000 --nepochs 1000 --model SO_FR &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000 --nepochs 1000 --model SO_SC &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 0 --hid_dim 20000 --nepochs 1000 --model SR &
-        wait
-        # define dependencies for program 2 and 4
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000 --model SO_FR --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 1 --hid_dim 20000 --model SO_SC --test &
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner MNIST --run_id 0 --hid_dim 20000 --model SR --test &
+    hid_dim=20000
+    nepochs=1000
+fi
 
-    fi
+if [ "$TEST_ONLY" = true ]; then
+    echo "TEST_ONLY"
+    for i in ${!run_ids[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+    done
+else
+    echo "TRAINING AND TESTING"
+    for i in ${!run_ids[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} &
+    done
+    wait
+    for i in ${!run_ids[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+    done
 fi
 # wait for all programs to finish
 wait
