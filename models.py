@@ -125,7 +125,7 @@ class rand_RNN(torch.nn.Module):
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
         # self.non_lin = nn.LeakyReLU(0.1)
-        self.non_lin = torch.relu
+        self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
         self.Win = nn.Sequential(

@@ -284,3 +284,8 @@ def plot_true_and_recon_img(true_img, recon_img, size=(10,10)):
     ax[1].get_xaxis().set_visible(False)
     ax[1].get_yaxis().set_visible(False)
     return fig, ax
+
+def create_color_gradient(n):
+    cmap = plt.get_cmap('viridis')  # Choose a colormap here
+    colors = [cmap(i) for i in np.linspace(0, 1, n)]
+    return colors
