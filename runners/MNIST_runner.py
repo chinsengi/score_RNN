@@ -129,11 +129,10 @@ class MNIST():
     def test(self):
         with torch.no_grad():
             model = self.set_model()
-
             load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
             # load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{700}", model)
-
             model.set_weight()
+
             samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
             # if self.args.filter == "none":
             #     samples = torch.pinverse(model.W_out.weight)
@@ -153,6 +152,8 @@ class MNIST():
                 samples = self.ff_filter.inverse_transform(samples)
             samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
+
+            # plot samples
             nrow = 10
             ncol = 10
             fig, axes = plt.subplots(nrow, ncol)
