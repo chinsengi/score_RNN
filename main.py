@@ -30,6 +30,7 @@ def parse_args_and_config():
                         help='path to sparse filter weights trained on MNIST')
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
+    parser.add_argument("--noise_level", type=int, default=20, help="number of noise steps")
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()

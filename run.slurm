@@ -13,9 +13,9 @@
 #SBATCH --chdir=.
 
 TEST_ONLY=false
-TEST_ONLY=true
+# TEST_ONLY=true
 RUN="DP"
-RUN="MNIST"
+# RUN="MNIST"
 # Your programs to run.
 
 declare -a run_ids=("2" "1" "0")
@@ -23,7 +23,7 @@ declare -a models=("SO_SC" "SO_FR" "SR")
 
 if [ "$RUN" = "DP" ]; then
     echo "DP experiment"
-    hid_dim=1000
+    hid_dim=500
     nepochs=1000
 elif [ "$RUN" = "MNIST" ]; then
     echo "MNIST experiment"
