@@ -100,7 +100,7 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        v = v - self.gamma.T*input
+        # v = v - self.gamma.T*input
         if not self.synap:
             v = v@self.sig@self.sig.T
         return v

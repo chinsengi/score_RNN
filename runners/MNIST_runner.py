@@ -130,15 +130,15 @@ class MNIST():
         with torch.no_grad():
             model = self.set_model()
 
-            # load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
-            load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{700}", model)
+            load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
+            # load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{700}", model)
 
             model.set_weight()
-            # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
+            samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
             # if self.args.filter == "none":
             #     samples = torch.pinverse(model.W_out.weight)
             #     samples = (self.hidden_states[:10]@samples.T).to(self.device)
-            if self.args.model=="SO":
+            if self.args.model=="SO_FR" or self.args.model=="SO_SC":
                 samples = (torch.randn([100, self.out_dim])).to(self.device)/1000
             elif self.args.model == "SR":
                 samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000

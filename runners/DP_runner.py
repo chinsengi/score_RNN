@@ -35,7 +35,7 @@ class DP():
         # choosing the model
         print("model used is :"+ self.args.model)
         model = self.set_model()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
 
         # annealing noise
         n_level = self.n_level
@@ -48,7 +48,7 @@ class DP():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{self.args.model}_ep{epoch}.pth")
-                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
             for batchId, h in enumerate(train_loader):
                 h = h.to(self.device)
                 h_noisy = h + torch.randn_like(h)*noise_level
