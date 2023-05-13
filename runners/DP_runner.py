@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 from data import UniformData, GMMData
 import numpy as np
 from matplotlib.colors import ListedColormap
+# import scienceplots
 
+# plt.style.use('science')
 __all__ = ['DP']
 
 # double peak experiment
@@ -19,7 +21,7 @@ class DP():
         self.args = args
         self.device = args.device
         self.n_level = 20
-        torch.set_float32_matmul_precision('high')
+        # torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim
@@ -33,7 +35,7 @@ class DP():
         # choosing the model
         print("model used is :"+ self.args.model)
         model = self.set_model()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
 
         # annealing noise
         n_level = self.n_level
@@ -45,8 +47,8 @@ class DP():
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{model.__class__.__name__}_ep{epoch}.pth")
-                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0)
+                save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{self.args.model}_ep{epoch}.pth")
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
             for batchId, h in enumerate(train_loader):
                 h = h.to(self.device)
                 h_noisy = h + torch.randn_like(h)*noise_level
@@ -58,7 +60,7 @@ class DP():
                 optimizer.step()
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{model.__class__.__name__}_chkpt{self.args.run_id}.pth")    
+        save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{self.args.model}_chkpt{self.args.run_id}.pth")    
 
     def test(self):
         hid_dim, out_dim= self.args.hid_dim, 1
@@ -66,7 +68,7 @@ class DP():
         nsample = 5000
         if self.args.model=="SR":
             samples = (torch.rand([nsample, hid_dim])*4-2).to(self.device)
-        elif self.args.model=="SO":
+        elif self.args.model=="SO_SC" or self.args.model=="SO_FR":
             samples = (torch.rand([nsample, out_dim])*4-2).to(self.device)
         
         n_level = 20
@@ -79,7 +81,7 @@ class DP():
         with torch.no_grad():
             for i in range(1,n_level):
                 model = self.set_model()
-                load(f"./model/DP/{self.args.run_id}/{model.__class__.__name__}_ep{i*(self.args.nepochs//self.n_level)}.pth", model)
+                load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{i*(self.args.nepochs//self.n_level)}.pth", model)
                 model.set_weight()
                 tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(np.arange(-5,5,.1), tmp, color=colors[i])
@@ -88,7 +90,7 @@ class DP():
             plt.legend(fontsize=12)
             savefig(path="./image/DP", filename=self.args.model+"_score_func")
             model = self.set_model()
-            load(f"./model/DP/{self.args.run_id}/{model.__class__.__name__}_chkpt{self.args.run_id}.pth", model)
+            load(f"./model/DP/{self.args.run_id}/{self.args.model}_chkpt{self.args.run_id}.pth", model)
             model.set_weight()
             model.dt = 1e-3
             samples = gen_sample(model, samples, 5000)
