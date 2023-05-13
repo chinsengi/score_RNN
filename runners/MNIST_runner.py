@@ -92,7 +92,7 @@ class MNIST():
         # model.apply(model.init_weights)
         # annealing noise
         n_level = 20
-        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -101,14 +101,14 @@ class MNIST():
 
         # load weights
         if self.args.resume:
-            load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model, optimizer)
+            load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model, optimizer)
             model.set_weight()
 
         for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
-                save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{model.__class__.__name__}_MNIST_ep{epoch}")
+                save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{self.args.model}_MNIST_ep{epoch}")
                 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
 
             for h in train_loader:
@@ -123,15 +123,15 @@ class MNIST():
                 optimizer.step()
 
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
-        save(model, optimizer, f"./model/MNIST/", f"{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}")
+        save(model, optimizer, f"./model/MNIST/", f"{self.args.model}_MNIST_chkpt{self.args.run_id}")
 
 
     def test(self):
         with torch.no_grad():
             model = self.set_model()
 
-            # load(f"./model/MNIST/{model.__class__.__name__}_MNIST_chkpt{self.args.run_id}", model)
-            load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{700}", model)
+            # load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
+            load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{700}", model)
 
             model.set_weight()
             # samples = (torch.rand([10, self.hid_dim])-.5).to(self.device)
@@ -171,7 +171,7 @@ class MNIST():
         for i in range(length):
             if i % (length//n_level) ==0:
                 model = self.set_model()
-                load(f"./model/MNIST/{self.args.run_id}/{model.__class__.__name__}_MNIST_ep{(i//(length//n_level))*40}", model)
+                load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{(i//(length//n_level))*40}", model)
                 model.set_weight()
             next = model(next)
         return next
