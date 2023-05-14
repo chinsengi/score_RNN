@@ -2,7 +2,7 @@
 
 Run different experiments with command
 
-`python main.py --runner MNIST --run_id 0 --hid_dim 20000 --nepochs 100 --model SR`
+`python main.py --runner MNIST --run_id 0 --hid_dim 20000 --nepochs 1000 --model SR`
 `python main.py --runner DP --run_id 3 --hid_dim 1000 --nepochs 400 --model SR`
 
 ## Hyak commands
