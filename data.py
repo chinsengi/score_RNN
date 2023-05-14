@@ -5,6 +5,8 @@ from os.path import join as pjoin
 import numpy as np
 import scipy.io as sio
 from torch.distributions import MultivariateNormal, MixtureSameFamily
+from torch.distributions.laplace import Laplace
+from mv_laplace import MvLaplaceSampler
 
 # generate initial states that conforms to the Gaussian distribution
 class GaussianData(Dataset):
@@ -51,6 +53,25 @@ class GMMData(Dataset):
         mode_id = random.randint(0, self.n_comp-1)
         GMMdata =  torch.normal(self.GMMmean[mode_id, :], self.GMMstd[mode_id, :])
         return GMMdata
+    
+class LAPData(Dataset):
+    def __init__(self, LAPmean, LAPstd, n=1000):
+        super().__init__()
+        self.n_comp = LAPmean.shape[0]
+        self.n_feature = LAPmean.shape[1]
+        self.LAPmean = LAPmean
+        self.LAPstd = LAPstd
+        self.n = n
+
+    def __len__(self):
+        return self.n
+
+    def __getitem__(self, index):
+        mode_id = random.randint(0, self.n_comp-1)
+        # sample laplace  
+        m = Laplace(self.LAPmean[mode_id, :], self.LAPstd[mode_id, :])
+        return m.sample()
+
 
 class CelegansData(Dataset):
     def __init__(self):
