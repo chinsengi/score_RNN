@@ -287,7 +287,7 @@ def plot_true_and_recon_img(true_img, recon_img, size=(10,10)):
     return fig, ax
 
 def create_color_gradient(n):
-    cmap = plt.get_cmap('viridis')  # Choose a colormap here
+    cmap = plt.get_cmap('Blues')  # Choose a colormap here
     colors = [cmap(i) for i in np.linspace(0, 1, n)]
     return colors
 

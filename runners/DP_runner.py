@@ -10,9 +10,10 @@ import matplotlib.pyplot as plt
 from data import UniformData, GMMData
 import numpy as np
 from matplotlib.colors import ListedColormap
-# import scienceplots
+from matplotlib.cm import ScalarMappable
+import scienceplots
 
-# plt.style.use('science')
+plt.style.use('science')
 __all__ = ['DP']
 
 # double peak experiment
@@ -48,7 +49,7 @@ class DP():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/DP/{self.args.run_id}", f"{self.args.model}_ep{epoch}.pth")
-                # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001, amsgrad=True)
             for batchId, h in enumerate(train_loader):
                 h = h.to(self.device)
                 h_noisy = h + torch.randn_like(h)*noise_level
@@ -83,9 +84,12 @@ class DP():
                 model.set_weight()
                 tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(np.arange(-5,5,.1), tmp, color=colors[i])
-            true_score = score_GMM_1D(torch.arange(-5,5,.1), torch.tensor([-1,1]), torch.tensor([0.5**2, 0.5**2]))
+            true_score = score_GMM_1D(torch.arange(-5, 5,.1), torch.tensor([-1,1]), torch.tensor([0.5**2, 0.5**2]))
             plt.plot(np.arange(-5, 5, .1), true_score, color="red", label="true score")
             plt.legend(fontsize=20)
+            sm = ScalarMappable(cmap="Blues")
+            sm.set_array([])
+            plt.colorbar(sm)
             savefig(path="./image/DP", filename=self.args.model+"_score_func")
             
             # get samples
