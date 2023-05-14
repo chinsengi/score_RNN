@@ -31,7 +31,7 @@ def parse_args_and_config():
     parser.add_argument('--ae-weight-path', type=str, default='data/MNIST/ae_weights/ae.pth', help='path to sparse filter weights trained on MNIST')
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
-    parser.add_argument("--noise_level", type=int, default=20, help="number of noise steps")
+    parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()
@@ -42,10 +42,10 @@ def parse_args_and_config():
         raise ValueError('level {} not supported'.format(args.verbose))
 
     if not args.test:
-        if not args.resume:
-            if os.path.exists(args.log):
-                shutil.rmtree(args.log)
-            os.makedirs(args.log)
+        # if not args.resume:
+        #     if os.path.exists(args.log):
+        #         shutil.rmtree(args.log)
+        #     os.makedirs(args.log)
         handler1 = logging.StreamHandler()
         handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
         formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
@@ -76,10 +76,7 @@ def main():
 
     # set random seed
     if args.seed != 0:
-        torch.manual_seed(args.seed)
-        np.random.seed(args.seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(args.seed)
+        set_seed(args.seed)
 
     try:
         runner = eval(args.runner)(args)

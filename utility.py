@@ -7,6 +7,7 @@ import logging
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import random
 
 def use_gpu(gpu_id: int=0):
     num_of_gpus = torch.cuda.device_count()
@@ -289,3 +290,11 @@ def create_color_gradient(n):
     cmap = plt.get_cmap('viridis')  # Choose a colormap here
     colors = [cmap(i) for i in np.linspace(0, 1, n)]
     return colors
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)

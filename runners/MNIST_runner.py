@@ -122,11 +122,11 @@ class MNIST():
         # model.apply(model.init_weights)
         # annealing noise
         n_level = self.args.noise_level
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(500)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001)
         # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
 
         # load weights
@@ -139,7 +139,7 @@ class MNIST():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{self.args.model}_MNIST_ep{epoch}")
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.0001)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.001, amsgrad=True)
 
             for h in train_loader:
                 # print(batchId)
@@ -173,8 +173,8 @@ class MNIST():
                 samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
             model.dt = 1e-6
             model = model.to(self.device)
-            samples = self.anneal_gen_sample(model, samples, 5000)
-            # samples = gen_sample(model, samples, 10000)
+            # samples = self.anneal_gen_sample(model, samples, 5000)
+            samples = gen_sample(model, samples, 10000)
             samples = model.W_out(samples)
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
@@ -198,14 +198,20 @@ class MNIST():
     def anneal_gen_sample(self, model, initial_state, length):
         next = initial_state
         n_level = self.args.noise_level
+        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
         step = self.args.nepochs//n_level
         T = length//n_level
         
+        dt = 1e-4
         for i in range(length):
             if i % T ==0:
                 load(f"./model/MNIST/{self.args.run_id}/{self.args.model}_MNIST_ep{(i//T)*step}", model)
                 model.set_weight()
+                model.dt = noise_levels[i//T]**2*dt
             next = model(next)
+        load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model)
+        model.set_weight()
+        next = gen_sample(model, next, 1000)
         return next
     
     def set_model(self):
