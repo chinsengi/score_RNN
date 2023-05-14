@@ -34,7 +34,7 @@ class DP():
         # choosing the model
         print("model used is :"+ self.args.model)
         model = self.set_model()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=0)
 
         # annealing noise
         n_level = self.args.noise_level
