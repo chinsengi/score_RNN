@@ -4,10 +4,10 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sc256@uw.edu
 #SBATCH --account=amath
-# SBATCH --partition=gpu-rtx6k 
-#SBATCH --partition=ckpt
+#SBATCH --partition=gpu-rtx6k 
+# SBATCH --partition=ckpt
 #SBATCH --nodes=3
-#SBATCH --mem=40G
+#SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 
 #SBATCH --chdir=.
@@ -23,7 +23,7 @@ declare -a models=("SO_SC" "SO_FR" "SR")
 
 if [ "$RUN" = "DP" ]; then
     echo "DP experiment"
-    hid_dim=500
+    hid_dim=1000
     nepochs=1000
 elif [ "$RUN" = "MNIST" ]; then
     echo "MNIST experiment"

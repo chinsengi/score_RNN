@@ -20,7 +20,7 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        # torch.set_float32_matmul_precision('high')
+        torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim
@@ -34,7 +34,8 @@ class DP():
         # choosing the model
         print("model used is :"+ self.args.model)
         model = self.set_model()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=.001, amsgrad=True)
+        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, amsgrad=True)
 
         # annealing noise
         n_level = self.args.noise_level
@@ -74,29 +75,31 @@ class DP():
         n_level = self.args.noise_level
         colors = create_color_gradient(n_level+1)
         # cmap = ListedColormap(colors)
+        model = self.set_model()
         with torch.no_grad():
+            # plot score function during training
             for i in range(n_level+1):
-                model = self.set_model()
                 load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{i*(self.args.nepochs//self.args.noise_level)}.pth", model)
                 model.set_weight()
                 tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(np.arange(-5,5,.1), tmp, color=colors[i])
             true_score = score_GMM_1D(torch.arange(-5,5,.1), torch.tensor([-1,1]), torch.tensor([0.5**2, 0.5**2]))
             plt.plot(np.arange(-5, 5, .1), true_score, color="red", label="true score")
-            plt.legend(fontsize=12)
+            plt.legend(fontsize=20)
             savefig(path="./image/DP", filename=self.args.model+"_score_func")
-            model = self.set_model()
+            
+            # get samples
             load(f"./model/DP/{self.args.run_id}/{self.args.model}_chkpt{self.args.run_id}.pth", model)
             model.set_weight()
-            model.dt = 1e-3
-            samples = gen_sample(model, samples, 5000)
+            model.dt = 1e-4
+            samples = gen_sample(model, samples, 10000)
             plt.figure()
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
             logging.info(samples.shape)
             _, bins, _ = plt.hist(samples, bins=100, label=  "sampled points")
             plt.plot(np.arange(-3,3,.1), mixture_pdf(torch.arange(-3,3,.1), torch.tensor([-1,1]), torch.tensor([0.5**2,0.5**2]))*nsample*(bins[1]-bins[0]), label="Scaled density function")
-            plt.legend(fontsize=12)
+            plt.legend(fontsize=20)
             savefig(path="./image/DP", filename=self.args.model+"_DP_sampled")
 
     def set_model(self):
