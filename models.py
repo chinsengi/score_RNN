@@ -77,14 +77,14 @@ class SynCurrentDyn(torch.nn.Module):
 vanilla synaptic current & firing rate model of RNN, without output layer
 '''
 class NeuralDyn(torch.nn.Module):
-    def __init__(self, hid_dim, synap=True, dt=0.001):
+    def __init__(self, hid_dim, synap=True, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
         self.hid_dim = hid_dim
         self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
         self.sig = Parameter(torch.zeros(hid_dim, hid_dim, requires_grad=True))
         self.W = nn.Linear(hid_dim, hid_dim, bias=True)
         self.W_out = nn.Identity()
-        self.non_lin = nn.ReLU()
+        self.non_lin = non_lin
         self.dt = dt
         self.synap = synap # if the dynamics is synaptic current or not (firing rate dynamics)
         self.is_set_weight=True
@@ -100,7 +100,7 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        # v = v - self.gamma.T*input
+        v = v - self.gamma.T*input
         if not self.synap:
             v = v@self.sig@self.sig.T
         return v
@@ -114,7 +114,7 @@ class NeuralDyn(torch.nn.Module):
             # init.constant_(m.bias, 0)
 
 class rand_RNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001):
+    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
@@ -124,7 +124,8 @@ class rand_RNN(torch.nn.Module):
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
         self.is_set_weight = False
-        self.non_lin = nn.LeakyReLU(0.1)
+        self.non_lin = non_lin
+        # self.non_lin = nn.LeakyReLU(0.1)
         # self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
