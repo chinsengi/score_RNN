@@ -40,6 +40,9 @@ def parse_args_and_config():
     if not isinstance(level, int):
         raise ValueError('level {} not supported'.format(args.verbose))
 
+    # if not args.resume:
+    #     if os.path.exists(args.log):
+    #         shutil.rmtree(args.log)
     if not os.path.exists(args.log):
         os.makedirs(args.log)
     if not args.test:
