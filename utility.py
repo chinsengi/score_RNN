@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 import random
+from matplotlib.colors import Normalize
 
 def use_gpu(gpu_id: int=0):
     num_of_gpus = torch.cuda.device_count()
@@ -286,9 +287,9 @@ def plot_true_and_recon_img(true_img, recon_img, size=(10,10)):
     ax[1].get_yaxis().set_visible(False)
     return fig, ax
 
-def create_color_gradient(n):
-    cmap = plt.get_cmap('viridis')  # Choose a colormap here
-    colors = [cmap(i) for i in np.linspace(0, 1, n)]
+def create_color_gradient(noise_level, norm):
+    cmap = plt.get_cmap('Blues_r')  # Choose a colormap here
+    colors = [cmap(norm(i)) for i in noise_level]
     return colors
 
 def set_seed(seed):

@@ -81,7 +81,7 @@ class NeuralDyn(torch.nn.Module):
         super().__init__()
         self.hid_dim = hid_dim
         self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
-        self.sig = Parameter(torch.zeros(hid_dim, hid_dim, requires_grad=True))
+        self.sig = Parameter(torch.eye(hid_dim, requires_grad=True))
         self.W = nn.Linear(hid_dim, hid_dim, bias=True)
         self.W_out = nn.Identity()
         self.non_lin = non_lin
@@ -100,9 +100,9 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        v = v - self.gamma.T*input
-        if not self.synap:
-            v = v@self.sig@self.sig.T
+        v -= input
+        v = self.gamma.T*v
+        v = v@self.sig@self.sig.T
         return v
     
     def set_weight(self):
