@@ -55,6 +55,8 @@ class GMMData(Dataset):
         return GMMdata
     
 class LAPData(Dataset):
+    # LAPMean: 2d array, each row is a mean vector
+    # LAPstd: 3d array, each element is a 2D PSD matrix
     def __init__(self, LAPmean, LAPstd, n=1000):
         super().__init__()
         self.n_comp = LAPmean.shape[0]
@@ -62,15 +64,17 @@ class LAPData(Dataset):
         self.LAPmean = LAPmean
         self.LAPstd = LAPstd
         self.n = n
+        # create samplers
+        self.samplers = []
+        for i in range(self.n_comp):
+            self.samplers.append(MvLaplaceSampler(self.LAPmean[i, :], self.LAPstd[i, :]))
 
     def __len__(self):
         return self.n
 
     def __getitem__(self, index):
         mode_id = random.randint(0, self.n_comp-1)
-        # sample laplace  
-        m = Laplace(self.LAPmean[mode_id, :], self.LAPstd[mode_id, :])
-        return m.sample()
+        return self.samplers[mode_id].sample(1)
 
 
 class CelegansData(Dataset):

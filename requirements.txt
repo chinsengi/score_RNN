@@ -3,3 +3,4 @@ seaborn
 scikit-learn
 pyyaml
 mv-laplace
+SciencePlots
