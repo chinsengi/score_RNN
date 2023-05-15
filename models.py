@@ -100,9 +100,9 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        v = v - self.gamma.T*input
-        if not self.synap:
-            v = v@self.sig@self.sig.T
+        v -= input
+        v = self.gamma.T*v
+        v = v@self.sig@self.sig.T
         return v
     
     def set_weight(self):

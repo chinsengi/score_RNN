@@ -21,7 +21,7 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        torch.set_float32_matmul_precision('high')
+        # torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim

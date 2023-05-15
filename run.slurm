@@ -13,7 +13,7 @@
 #SBATCH --chdir=.
 
 TEST_ONLY=false
-TEST_ONLY=true
+# TEST_ONLY=true
 RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
