@@ -6,20 +6,20 @@
 #SBATCH --account=amath
 #SBATCH --partition=gpu-rtx6k 
 # SBATCH --partition=ckpt
-#SBATCH --nodes=3
+#SBATCH --nodes=1
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 
 #SBATCH --chdir=.
 
 TEST_ONLY=false
-# TEST_ONLY=true
+TEST_ONLY=true
 RUN="DP"
-# RUN="MNIST"
+RUN="MNIST"
 # Your programs to run.
 
-declare -a run_ids=("2" "1" "0")
-declare -a models=("SO_SC" "SO_FR" "SR")
+declare -a run_ids=("2")
+declare -a models=("SR")
 
 if [ "$RUN" = "DP" ]; then
     echo "DP experiment"

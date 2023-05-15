@@ -81,7 +81,7 @@ class NeuralDyn(torch.nn.Module):
         super().__init__()
         self.hid_dim = hid_dim
         self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
-        self.sig = Parameter(torch.zeros(hid_dim, hid_dim, requires_grad=True))
+        self.sig = Parameter(torch.eye(hid_dim, requires_grad=True))
         self.W = nn.Linear(hid_dim, hid_dim, bias=True)
         self.W_out = nn.Identity()
         self.non_lin = non_lin

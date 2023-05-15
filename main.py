@@ -40,11 +40,9 @@ def parse_args_and_config():
     if not isinstance(level, int):
         raise ValueError('level {} not supported'.format(args.verbose))
 
+    if not os.path.exists(args.log):
+        os.makedirs(args.log)
     if not args.test:
-        # if not args.resume:
-        #     if os.path.exists(args.log):
-        #         shutil.rmtree(args.log)
-        #     os.makedirs(args.log)
         handler1 = logging.StreamHandler()
         handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
         formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')

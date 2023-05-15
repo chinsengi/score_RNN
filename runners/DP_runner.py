@@ -13,7 +13,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.cm import ScalarMappable
 import scienceplots
 
-plt.style.use('science')
+# plt.style.use('science')
 __all__ = ['DP']
 
 # double peak experiment
