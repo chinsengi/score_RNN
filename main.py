@@ -52,6 +52,7 @@ def parse_args_and_config():
         handler1.setFormatter(formatter)
         handler2.setFormatter(formatter)
         logger = logging.getLogger()
+        logger.addHandler(handler1)
         logger.addHandler(handler2)
         logger.setLevel(level)
     else:
@@ -73,6 +74,10 @@ def main():
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
     logging.info(args)
+
+    # print out the runner file   
+    with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
+        logging.info(f.read())
 
     # set random seed
     if args.seed != 0:

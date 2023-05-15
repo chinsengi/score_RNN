@@ -243,7 +243,7 @@ param:
 def gen_sample(model, initial_state, length):
     assert(model.is_set_weight)
     next = initial_state
-    for _ in range(length):
+    for i in tqdm(range(length)):
         # next = next + model.dt*model.score(next) + math.sqrt(2*model.dt)*torch.randn_like(next)
         next = model(next)
     return next
