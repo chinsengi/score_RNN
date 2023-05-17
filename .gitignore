@@ -7,6 +7,7 @@
 __pycache__/
 data/FashionMNIST
 data/MNIST
+data/cifar*
 *.png
 run/
 
@@ -24,3 +25,4 @@ run/
 # expeirments
 *model/
 *runs/
+*image/

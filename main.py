@@ -25,9 +25,10 @@ def parse_args_and_config():
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
-    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | none')
+    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | ae | none')
     parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', \
                         help='path to sparse filter weights trained on MNIST')
+    parser.add_argument('--ae-weight-path', type=str, default='data/MNIST/ae_weights/ae.pth', help='path to sparse filter weights trained on MNIST')
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")
