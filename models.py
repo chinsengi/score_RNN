@@ -100,7 +100,7 @@ class NeuralDyn(torch.nn.Module):
         else:
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
-        v -= input
+        v = v - input
         v = self.gamma.T*v
         v = v@self.sig@self.sig.T
         return v
@@ -129,16 +129,16 @@ class rand_RNN(torch.nn.Module):
         # self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
-        self.Win = nn.Sequential(
-            nn.Linear(in_dim, hid_dim),
-            nn.ReLU(),
-            nn.Linear(hid_dim, out_dim),
-        )
-        self.Win_rec = nn.Sequential(
-            nn.Linear(in_dim, hid_dim*2),
-            nn.ReLU(),
-            nn.Linear(hid_dim*2, hid_dim),
-        )
+        # self.Win = nn.Sequential(
+        #     nn.Linear(in_dim, hid_dim),
+        #     nn.ReLU(),
+        #     nn.Linear(hid_dim, out_dim),
+        # )
+        # self.Win_rec = nn.Sequential(
+        #     nn.Linear(in_dim, hid_dim*2),
+        #     nn.ReLU(),
+        #     nn.Linear(hid_dim*2, hid_dim),
+        # )
 
 
     def forward(self, hidden, input=None):
