@@ -12,6 +12,10 @@ plt.style.use('science')
 plt.rcParams.update({
     "text.usetex": False,
 })
+plt.rcParams['xtick.labelsize'] = 12
+plt.rcParams['ytick.labelsize'] = 12
+plt.rcParams['axes.labelsize'] = 16
+
 from data import LAPData
 import numpy as np
 from scipy.stats import kurtosis
@@ -104,19 +108,17 @@ class LAP():
             # side by side figure -- true samples vs generated samples, and krutosis group bar plot
             fig, axes = plt.subplots(1,2, figsize=(10,5), sharex=True, sharey=True)
             # plot true sample historgram
-            axes[0].hist2d(true_samples[:,0], true_samples[:,1], bins=(100, 100), label="true samples")
+            axes[0].hist2d(true_samples[:,0], true_samples[:,1], bins=[np.arange(-6, 6, 0.1), np.arange(-6, 6, 0.1)], label="true samples")
             # plot learned sampled historgram
-            axes[1].hist2d(samples[:,0], samples[:,1], bins=(100,100), label="generated samples")
+            axes[1].hist2d(samples[:,0], samples[:,1], bins=[np.arange(-6, 6, 0.1), np.arange(-6, 6, 0.1)], label="generated samples")
             plt.xlim(-5, 5)
             plt.ylim(-5, 5)
-            savefig(path="./image/LAP", filename=self.args.model+"_LAP_true_v_gen_density.pdf")
+            savefig(path="./image/LAP", filename=self.args.model+"_LAP_true_v_gen_density", format="png")
              
             # compare kurtosis
-            plt.figure()
+            plt.figure(figsize=(5, 5))
             true_kurts = [kurtosis(true_samples[:,0]), kurtosis(true_samples[:,1])]
             gen_kurts = [kurtosis(samples[:,0]), kurtosis(samples[:,1])]
-            print(true_kurts)
-            print(gen_kurts)
             categories = ['True sample', 'Generated sample']
             group_names = ['x', 'y']
             values = np.array([true_kurts, gen_kurts])
@@ -131,11 +133,11 @@ class LAP():
 
             # Set the x-axis labels, y-axis label, and the plot title
             plt.ylabel('Kurtosis')
-            plt.legend()
-
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, fontsize=16)
+        
             # Set the tick labels on the x-axis
-            plt.xticks(x + bar_width * (len(categories) - 1) / 2, group_names)
-            savefig(path="./image/LAP", filename=self.args.model+"_LAP_true_v_gen_kurt.pdf")
+            plt.xticks(x + bar_width * (len(categories) - 1) / 2, ["", ""])
+            savefig(path="./image/LAP", filename=self.args.model+"_LAP_true_v_gen_kurt", format="png")
 
 
     def set_model(self):

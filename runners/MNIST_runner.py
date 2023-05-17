@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN, SparseNet, NeuralDyn, Autoencoder
+from models import rand_RNN, SparseNet, NeuralDyn
 import torchvision
 import logging
 
@@ -12,59 +12,34 @@ import time
 
 __all__ = ['MNIST']
 
-class SCFilter():
-    def __init__(self, sparse_weight_path, device, feature_dim=3136, batch_size=500):
-        # TODO: don't hard code this.
-        self.device = device
-        self.feature_dim = feature_dim
-        self.net = SparseNet(784, feature_dim, 0.75, 0.001, 500, device).to(device)
-        self.net.load_state_dict(torch.load(sparse_weight_path))
-        self.net.eval()
-        self.batch_size = batch_size
-
-    def fit_transform(self, data):
-
-        result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
-        indices = torch.arange(0, data.size(0), self.batch_size) 
-        for i in range(len(indices)):
-            start_idx = indices[i]
-            end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
-            data_batch = data[start_idx:end_idx].to(self.device)
-            result[start_idx:end_idx] = self.net.inference(data_batch).cpu()
-
-        return result.clone().detach()
-    
-    def inverse_transform(self, data):
-        data = data.to(self.device)
-        return self.net.U(data)
-
-class AEFilter():
-    def __init__(self, ae_weight_path, device, feature_dim=32, batch_size=500):
-        self.device = device
-        self.feature_dim = feature_dim
-        self.net = Autoencoder(feature_dim).to(device)
-        self.net.load_state_dict(torch.load(ae_weight_path))
-        # this is processing the training set
-        self.net.train()
-        self.batch_size = batch_size
-    
-    def fit_transform(self, data):
-        result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
-        indices = torch.arange(0, data.size(0), self.batch_size) 
-        for i in range(len(indices)):
-            start_idx = indices[i]
-            end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
-            data_batch = data[start_idx:end_idx].reshape(-1, 1, 28, 28).to(self.device)
-            result[start_idx:end_idx] = self.net.encoder(data_batch).cpu()
-
-        return result.clone().detach()
-
-    def inverse_transform(self, data):
-        data = data.to(self.device)
-        return self.net.decoder(data)
-
-
 class MNIST():
+    
+
+    class SparseCoding():
+        def __init__(self, sparse_weight_path, device, feature_dim=3136, batch_size=500):
+            # TODO: don't hard code this.
+            self.device = device
+            self.feature_dim = feature_dim
+            self.net = SparseNet(784, feature_dim, 0.75, 0.001, 500, device).to(device)
+            self.net.load_state_dict(torch.load(sparse_weight_path))
+            self.net.eval()
+            self.batch_size = batch_size
+
+        def fit_transform(self, data):
+
+            result = torch.zeros((data.size(0), self.feature_dim), requires_grad=False)
+            indices = torch.arange(0, data.size(0), self.batch_size) 
+            for i in range(len(indices)):
+                start_idx = indices[i]
+                end_idx = data.size(0) if i == len(indices) - 1 else indices[i+1]
+                data_batch = data[start_idx:end_idx].to(self.device)
+                result[start_idx:end_idx] = self.net.inference(data_batch).cpu()
+
+            return result.clone().detach()
+        
+        def inverse_transform(self, data):
+            data = data.to(self.device)
+            return self.net.U(data)
 
     def __init__(self, args) -> None:
         self.args = args
@@ -89,13 +64,8 @@ class MNIST():
                 self.ff_filter = PCA(n_components=self.out_dim) 
             elif self.args.filter == "sparse":
                 logging.info("using sparse filter")
-                self.ff_filter = SCFilter(args.sparse_weight_path, self.device)
+                self.ff_filter = self.SparseCoding(args.sparse_weight_path, self.device)
                 self.out_dim = self.ff_filter.feature_dim
-                self.args.out_dim = self.out_dim
-            elif self.args.filter == "ae":
-                self.ff_filter = AEFilter(args.ae_weight_path, self.device)
-                self.out_dim = self.ff_filter.feature_dim
-                self.args.out_dim = self.out_dim
             else:
                 raise NotImplementedError("Filter not implemented.")
         
@@ -106,7 +76,7 @@ class MNIST():
             self.hidden_states = train_data
             self.out_dim = len(train_data[0])
 
-        # self.std = np.sqrt(np.var(self.hidden_states, axis=0))
+        self.std = torch.tensor(np.sqrt(np.var(self.hidden_states, axis=0))).to(self.device).to(torch.float32)
         # self.hidden_states = self.hidden_states/self.std
         # recovered_hid = self.pca.inverse_transform(self.hidden_states[0])
         # plt.imshow(recovered_hid.reshape([28,28]))
@@ -122,7 +92,7 @@ class MNIST():
         # model.apply(model.init_weights)
         # annealing noise
         n_level = self.args.noise_level
-        noise_levels = [1/math.exp(math.log(100)*n/(n_level-1)) for n in range(n_level)]
+        noise_levels = [1./math.exp(math.log(50)*n/(n_level-1)) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -139,7 +109,7 @@ class MNIST():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 # save(model, optimizer, f"./model/MNIST/{self.args.run_id}", f"{self.args.model}_MNIST_ep{epoch}")
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.0001)
+                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
 
             for h in train_loader:
                 # print(batchId)
@@ -170,16 +140,24 @@ class MNIST():
             if self.args.model=="SO_FR" or self.args.model=="SO_SC":
                 samples = (torch.randn([100, self.out_dim])).to(self.device)/1000
             elif self.args.model == "SR":
-                samples = (torch.randn([100, self.hid_dim])-.5).to(self.device)/10000
+                # samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
+                samples = (torch.rand([100, self.hid_dim])-.5).to(self.device)/1000
                 # samples = (torch.zeros([100, self.hid_dim])).to(self.device)/1000
+
+                # wout_pinv = torch.pinverse(model.W_out.weight)
+                # var = (torch.tensor(self.std)**2@wout_pinv.T)
+                # logging.info(var.shape)
+                # samples = (torch.randn([100, self.hid_dim])).to(self.device)*(torch.sqrt(var).reshape(1,-1))
+
             model.dt = 1e-6
             model = model.to(self.device)
             # samples = self.anneal_gen_sample(model, samples, 10000)
-            samples = gen_sample(model, samples, 20000)
+            samples = gen_sample(model, samples,30000)
             samples = model.W_out(samples)
+            samples = samples.detach().cpu().numpy()
+            # samples = samples*self.std
             if self.args.filter != "none":
                 samples = self.ff_filter.inverse_transform(samples)
-            samples = samples.detach().cpu().numpy()
             samples = samples.reshape(len(samples), 28, 28)
             print(samples.shape)
 
@@ -187,12 +165,12 @@ class MNIST():
             nrow = 10
             ncol = 10
             fig, axes = plt.subplots(nrow, ncol)
-            fig.subplots_adjust(hspace=0.05, wspace=-0.005)
+            fig.subplots_adjust(hspace=0, wspace=0)
             for i in range(nrow):
                 for j in range(ncol):
                     ax = axes[i,j]
                     # ax.imshow(samples[i*ncol+j], cmap='gray')
-                    ax.imshow(samples[i*ncol+j])
+                    ax.imshow(samples[i*ncol+j], aspect='auto')
                     ax.axis('off')
             savefig(path=f"./image/MNIST/{self.args.run_id}", filename=self.args.model+"_digit_sampled")
 
