@@ -9,6 +9,7 @@ import os
 import numpy as np
 from utility import *
 from runners import *
+import json
 
 
 def parse_args_and_config():
@@ -41,31 +42,21 @@ def parse_args_and_config():
     if not isinstance(level, int):
         raise ValueError('level {} not supported'.format(args.verbose))
 
-    # if not args.resume:
-    #     if os.path.exists(args.log):
-    #         shutil.rmtree(args.log)
+    if not args.resume and not args.test:
+        if os.path.exists(args.log):
+            shutil.rmtree(args.log)
     if not os.path.exists(args.log):
         os.makedirs(args.log)
-    if not args.test:
-        handler1 = logging.StreamHandler()
-        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
-        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-        handler1.setFormatter(formatter)
-        handler2.setFormatter(formatter)
-        logger = logging.getLogger()
-        logger.addHandler(handler1)
-        logger.addHandler(handler2)
-        logger.setLevel(level)
-    else:
-        handler1 = logging.StreamHandler()
-        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
-        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-        handler1.setFormatter(formatter)
-        handler2.setFormatter(formatter)
-        logger = logging.getLogger()
-        logger.addHandler(handler1)
-        logger.addHandler(handler2)
-        logger.setLevel(level)
+
+    handler1 = logging.StreamHandler()
+    handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
+    formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
+    handler1.setFormatter(formatter)
+    handler2.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.addHandler(handler1)
+    logger.addHandler(handler2)
+    logger.setLevel(level)
  
     return args
 
@@ -74,7 +65,11 @@ def main():
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
-    logging.info(args)
+
+    # save the config file
+    logging.info(json.dumps(vars(args), indent=2))
+    with open(os.path.join(args.log, 'config.yaml'), 'w') as f:
+        yaml.dump(vars(args), f)
 
     # print out the runner file   
     with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:

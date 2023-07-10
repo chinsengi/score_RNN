@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 import random
-from matplotlib.colors import Normalize
 
 def use_gpu(gpu_id: int=0):
     num_of_gpus = torch.cuda.device_count()
