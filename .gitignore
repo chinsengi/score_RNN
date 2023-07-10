@@ -9,6 +9,7 @@ data/FashionMNIST
 data/MNIST
 *.png
 run/
+*.out
 
 # container
 *.cache
