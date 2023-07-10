@@ -9,6 +9,7 @@ import os
 import numpy as np
 from utility import *
 from runners import *
+import json
 
 
 def parse_args_and_config():
@@ -25,9 +26,10 @@ def parse_args_and_config():
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
-    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | none')
+    parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | ae | none')
     parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', \
                         help='path to sparse filter weights trained on MNIST')
+    parser.add_argument('--ae-weight-path', type=str, default='data/MNIST/ae_weights/ae.pth', help='path to sparse filter weights trained on MNIST')
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")
@@ -40,31 +42,21 @@ def parse_args_and_config():
     if not isinstance(level, int):
         raise ValueError('level {} not supported'.format(args.verbose))
 
-    # if not args.resume:
-    #     if os.path.exists(args.log):
-    #         shutil.rmtree(args.log)
+    if not args.resume and not args.test:
+        if os.path.exists(args.log):
+            shutil.rmtree(args.log)
     if not os.path.exists(args.log):
         os.makedirs(args.log)
-    if not args.test:
-        handler1 = logging.StreamHandler()
-        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
-        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-        handler1.setFormatter(formatter)
-        handler2.setFormatter(formatter)
-        logger = logging.getLogger()
-        logger.addHandler(handler1)
-        logger.addHandler(handler2)
-        logger.setLevel(level)
-    else:
-        handler1 = logging.StreamHandler()
-        handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
-        formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
-        handler1.setFormatter(formatter)
-        handler2.setFormatter(formatter)
-        logger = logging.getLogger()
-        logger.addHandler(handler1)
-        logger.addHandler(handler2)
-        logger.setLevel(level)
+
+    handler1 = logging.StreamHandler()
+    handler2 = logging.FileHandler(os.path.join(args.log, 'stdout.txt'))
+    formatter = logging.Formatter('%(levelname)s - %(filename)s - %(asctime)s - %(message)s')
+    handler1.setFormatter(formatter)
+    handler2.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.addHandler(handler1)
+    logger.addHandler(handler2)
+    logger.setLevel(level)
  
     return args
 
@@ -73,7 +65,11 @@ def main():
     print(f"Writing log file to {args.log}")
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
-    logging.info(args)
+
+    # save the config file
+    logging.info(json.dumps(vars(args), indent=2))
+    with open(os.path.join(args.log, 'config.yaml'), 'w') as f:
+        yaml.dump(vars(args), f)
 
     # print out the runner file   
     with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
