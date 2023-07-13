@@ -10,6 +10,7 @@ data/MNIST
 data/cifar*
 *.png
 run/
+*.out
 data/*.pkl
 
 # container

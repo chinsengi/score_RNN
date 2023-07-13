@@ -103,7 +103,7 @@ class MNIST():
         if self.args.resume:
             load(f"./model/MNIST/{self.args.model}_MNIST_chkpt{self.args.run_id}", model, optimizer)
             model.set_weight()
-
+        losses = []
         for epoch in tqdm(range(nepoch), dynamic_ncols=True):
             if epoch % (nepoch//n_level) ==0:
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
@@ -121,8 +121,10 @@ class MNIST():
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
+            losses.append(loss.item())
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
+        # save losses
+        np.save(f"./model/MNIST/{self.args.model}_MNIST_loss{self.args.run_id}", np.array(losses))
         save(model, optimizer, f"./model/MNIST/", f"{self.args.model}_MNIST_chkpt{self.args.run_id}")
 
 

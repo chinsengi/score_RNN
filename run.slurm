@@ -6,7 +6,7 @@
 #SBATCH --account=amath
 # SBATCH --partition=gpu-rtx6k 
 #SBATCH --partition=ckpt
-#SBATCH --nodes=1
+#SBATCH --nodes=3
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 
