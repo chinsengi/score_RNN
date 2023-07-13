@@ -172,82 +172,79 @@ class rand_RNN(torch.nn.Module):
             init.xavier_uniform_(m.weight)
             # init.constant_(m.bias, 0)
 
+
 class CelegansRNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001, non_lin=nn.LeakyReLU()):
+    def __init__(self, hid_dim, in_dim, connectome, dt=0.001, non_lin=nn.LeakyReLU()):
         super().__init__()
-        self.hid_dim = hid_dim
-        self.out_dim = out_dim
-        # self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
-        self.W_rec = nn.Linear(hid_dim, hid_dim, bias=True)
-        self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
-        self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
-        self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
-        self.is_set_weight = False
+        self.hid_dim = hid_dim  # number of neurons
+        self.in_dim = in_dim  # number of sensory neurons
+        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
+        self.v_rest = Parameter(torch.zeros(hid_dim, 1, requires_grad=True))
+        self.W_elec = Parameter(torch.rand(hid_dim, hid_dim))
+        self.W_chem = nn.Linear(hid_dim, hid_dim, bias=False)
+        self.E = nn.Linear(hid_dim, hid_dim, bias=False)
+        self.connectome = connectome
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
-        # self.non_lin = torch.nn.Tanh()
+        # self.non_lin = nn.Tanh()
         self.dt = dt
 
         self.Win = nn.Sequential(
-            nn.Linear(in_dim, hid_dim),
+            nn.Linear(1, hid_dim),
             non_lin,
-            nn.Linear(hid_dim, out_dim),
-        )
-        self.Win_rec = nn.Sequential(
-            nn.Linear(in_dim, hid_dim * 2),
-            non_lin,
-            nn.Linear(hid_dim * 2, hid_dim),
+            nn.Linear(hid_dim, in_dim),
         )
 
     def forward(self, hidden, input=None):
-        v = self.cal_v(hidden, input)
+        v = self.score(hidden, input)
         nbatch = hidden.shape[0]
         return (
             hidden
             + self.dt * v
-            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.out_dim).to(hidden))
-            @ self.sig.T
+            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))
         )
+    '''
+    calculate the dynamics (score function) of the output
 
-    def set_weight(self):
-        W_rec_tilde = self.W2.weight
-        self.W_out.weight = self.W1.weight
-        self.sig = torch.linalg.solve(
-            self.W1.weight @ self.W1.weight.T, self.W1.weight.T, left=False
+    Args:
+        sample: hidden state
+        input: sensory input
+        mask: whether to mask the weight (enforce sparsity)
+        sym_elec: whether to symmetrize the electric synapse
+    '''
+    def score(self, sample, input, mask=False, sym_elec=False):
+        if mask:
+            self.mask_weight()
+        if sym_elec:
+            W_elec = self.symmetric(self.W_elec)
+        trans_input = self.W_chem(self.non_lin(sample))
+        _score = (
+            -sample
+            + self.E(trans_input) - sample * trans_input # chemical synapse input
+            + sample @ W_elec - sample * torch.sum(W_elec, dim=1) # electric synapse input
+            + self.v_rest
         )
-        self.W_rec.weight = Parameter(W_rec_tilde @ self.W1.weight)
-        self.W_rec.bias = Parameter(self.W2.bias)
-        self.is_set_weight = True
-
-    # calculate the dynamics of the hidden state
-    def cal_v(self, hidden, input=None):
-        if input is not None:
-            input_rec = self.Win_rec(input)
-        else:
-            input_rec = 0
-        v = -hidden + self.non_lin(self.W_rec(hidden) + input_rec)
-        return v
-
-    # calculate the dynamics (score function) of the output
-    def score(self, sample, input=None):
-        if input is not None:
-            input_out = self.Win(input)
-            input_rec = self.Win_rec(input)
-        else:
-            input_out = 0
-            input_rec = 0
-        internal_score = -sample + self.W1(self.non_lin(self.W2(sample) + input_rec))
-        return internal_score + input_out
-
-    def true_input(self, x):
-        x = self.Win(x)
-        wout = self.W_out.weight
-        return (0.5 * wout @ wout.T @ x.T).T
+        sensory_input = self.Win(input)
+        _score[:, : self.in_dim] += sensory_input
+        return _score * self.gamma
 
     def init_weights(self, m):
         if isinstance(m, nn.Linear):
             init.xavier_uniform_(m.weight)
             # init.constant_(m.bias, 0)
+
+    # mask the weight matrix according to the connectome
+    def mask_weight(self):
+        pass
+        # W_c = torch.mul(self.sparsity_c, self.magnitudes_c * self.magnitude_scaling_factor_chem)
+        # W_e = torch.mul(self.sparsity_e, (self.magnitudes_e + self.magnitudes_e.transpose(0,1)) * self.magnitude_scaling_factor_elec)
+
+
+    # create a symmetric matrix out of X
+    @staticmethod
+    def symmetric(X):
+        return X.triu() + X.triu(1).transpose(-1, -2)
+
 
 class SparseNet(nn.Module):
     def __init__(

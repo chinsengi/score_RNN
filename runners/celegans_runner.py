@@ -1,6 +1,6 @@
 import torch
 from utility import *
-from models import rand_RNN
+from models import CelegansRNN
 from torch.utils.data import Dataset
 import shutil
 import logging
@@ -32,7 +32,7 @@ class Celegans():
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
         
         # set up the model
-        model = rand_RNN(self.args.hid_dim, train_dataset.out_dim).to(self.device)
+        model = CelegansRNN(self.args.hid_dim, train_dataset.out_dim).to(self.device)
         # model = torch.nn.DataParallel(model).to(self.args.device)
 
         # annealing noise
@@ -51,6 +51,7 @@ class Celegans():
                 noise_level = noise_levels[epoch//(nepoch//n_level)]
                 logging.info(f"noise level: {noise_level}")
                 save(model, optimizer, f"./model/{self.args.run_id}", f"{model.__class__.__name__}_celegans_ep{epoch}")
+
             for step, (odor, h) in enumerate(train_loader):
                 h = h.to(self.args.device, torch.float32)
                 odor = odor.to(self.args.device, torch.float32)

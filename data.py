@@ -99,29 +99,28 @@ class CelegansData(Dataset):
         stimulate_seconds = trace_variable['stim_times']
         stims = trace_variable['stims']
         # multiple trace datasets concatnate
-        for idata in range(N_dataset):
-            ineuron = 0
+        for data_idx in range(N_dataset):
+            neuro_idx = 0
             for ifile in range(N_length):
                 if trace_arr[ifile][0].shape[1] == 42:
-                    data = trace_arr[ifile][0][0][idata]
+                    data = trace_arr[ifile][0][0][data_idx]
                     if data.shape[0] < 1:
-                        trace_datasets[idata][ineuron][:] = np.nan
+                        trace_datasets[data_idx][neuro_idx][:] = np.nan
                     else:
-                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
-                    ineuron+= 1
-                    data = trace_arr[ifile][0][0][idata + 21]
+                        trace_datasets[data_idx][neuro_idx][0:data[0].shape[0]] = data[0]
+                    neuro_idx+= 1
+                    data = trace_arr[ifile][0][0][data_idx + 21]
                     if data.shape[0] < 1:
-                        trace_datasets[idata][ineuron][:] = np.nan
+                        trace_datasets[data_idx][neuro_idx][:] = np.nan
                     else:
-                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
-                    ineuron+= 1
+                        trace_datasets[data_idx][neuro_idx][0:data[0].shape[0]] = data[0]
                 else:
-                    data = trace_arr[ifile][0][0][idata]
+                    data = trace_arr[ifile][0][0][data_idx]
                     if data.shape[0] < 1:
-                        trace_datasets[idata][ineuron][:] = np.nan
+                        trace_datasets[data_idx][neuro_idx][:] = np.nan
                     else:
-                        trace_datasets[idata][ineuron][0:data[0].shape[0]] = data[0]
-                    ineuron+= 1
+                        trace_datasets[data_idx][neuro_idx][0:data[0].shape[0]] = data[0]
+                neuro_idx+= 1
         # neural activity target
         activity_worms = trace_datasets[:,:, T_start:]
         name_list = []
@@ -138,13 +137,13 @@ class CelegansData(Dataset):
         time = np.arange(start = 0, stop = T * step , step = step)
         odor_list = ['butanone','pentanedione','NaCL']
         # multiple odor datasets concatnate
-        for idata in range(N_dataset):
+        for data_idx in range(N_dataset):
             for it_stimu in range(stimulate_seconds.shape[0]):
                 tim1_ind = time>stimulate_seconds[it_stimu][0]
                 tim2_ind = time<stimulate_seconds[it_stimu][1]
                 odor_on = np.multiply(tim1_ind.astype('int'),tim2_ind.astype('int'))
-                stim_odor = stims[idata][it_stimu] - 1
-                odor_datasets[idata][stim_odor][:] = odor_on
+                stim_odor = stims[data_idx][it_stimu] - 1
+                odor_datasets[data_idx][stim_odor][:] = odor_on
                         
         odor_worms = odor_datasets[:,:, T_start:]
 

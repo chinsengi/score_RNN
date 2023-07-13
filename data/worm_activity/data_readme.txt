@@ -15,4 +15,4 @@ stims = the stimulus order per file
 traces = the traces for each neuron (note the empty {} place holders)
 Note: all traces are ordered by file but, for L/R neurons, its 21 L then 21 R
 norm_traces = the normalized traces for each neuron (note the empty {} place holders)
-Note: dF/F0 has negative values with using Erdem�s simple histogram matching without the nonnegative constrai.
+Note: dF/F0 has negative values with using Erdems simple histogram matching without the nonnegative constraint.
