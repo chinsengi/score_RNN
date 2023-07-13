@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +6,7 @@ import math
 from torch.autograd.functional import jacobian
 from utility import *
 import torch.nn.init as init
+
 
 class MLP(torch.nn.Module):
     def __init__(self, in_dim, out_dim, hid_dim=32, nlayer=2):
@@ -21,7 +21,6 @@ class MLP(torch.nn.Module):
         for i in range(self.nlayer):
             self.w_hh.append(nn.Linear(hid_dim, hid_dim))
 
-
     def forward(self, input):
         input = torch.flatten(input)
         x = self.w_in(input)
@@ -31,9 +30,12 @@ class MLP(torch.nn.Module):
         x = torch.tanh(x)
         return self.w_out(x)
 
-'''
+
+"""
 vanilla synaptic current model of RNN, without output layer
-'''
+"""
+
+
 class SynCurrentDyn(torch.nn.Module):
     def __init__(self, hid_dim, dt=0.001):
         super().__init__()
@@ -43,7 +45,7 @@ class SynCurrentDyn(torch.nn.Module):
         self.W_out = nn.Identity()
         self.non_lin = nn.ReLU()
         self.dt = dt
-        self.is_set_weight=True
+        self.is_set_weight = True
 
     def forward(self, input):
         v = self.score(input)
@@ -53,18 +55,18 @@ class SynCurrentDyn(torch.nn.Module):
         # GMM_var = torch.tensor([0.5, .5]).to(input).unsqueeze(0)
         # v = torch.cat((score_GMM(input[:,[0]], GMM_mean, GMM_var), score_normal(input[:,1:], mean, var)), 1)
         # v = score_normal(input,mean, var)
-        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
+        return input + self.dt * v + math.sqrt(2 * self.dt) * torch.randn_like(input)
 
-    def score(self, input): 
+    def score(self, input):
         input_trans = self.non_lin(input)
         v = self.W(input_trans)
         # v = v - torch.diag(self.W.weight)*input_trans
         # v = self.W(input)
         # v = self.W(torch.tanh(v))
         # v = v - torch.diag(self.W2.weight)*torch.tanh(v)
-        v = v - self.gamma.T*input
+        v = v - self.gamma.T * input
         return v
-    
+
     def set_weight(self):
         pass
 
@@ -73,9 +75,12 @@ class SynCurrentDyn(torch.nn.Module):
             init.xavier_uniform_(m.weight)
             # init.constant_(m.bias, 0)
 
-'''
+
+"""
 vanilla synaptic current & firing rate model of RNN, without output layer
-'''
+"""
+
+
 class NeuralDyn(torch.nn.Module):
     def __init__(self, hid_dim, synap=True, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
@@ -86,14 +91,16 @@ class NeuralDyn(torch.nn.Module):
         self.W_out = nn.Identity()
         self.non_lin = non_lin
         self.dt = dt
-        self.synap = synap # if the dynamics is synaptic current or not (firing rate dynamics)
-        self.is_set_weight=True
+        self.synap = (
+            synap  # if the dynamics is synaptic current or not (firing rate dynamics)
+        )
+        self.is_set_weight = True
 
     def forward(self, input):
         v = self.score(input)
-        return input + self.dt*v + math.sqrt(2*self.dt)*torch.randn_like(input)
+        return input + self.dt * v + math.sqrt(2 * self.dt) * torch.randn_like(input)
 
-    def score(self, input): 
+    def score(self, input):
         if self.synap:
             input_trans = self.non_lin(input)
             v = self.W(input_trans)
@@ -101,10 +108,10 @@ class NeuralDyn(torch.nn.Module):
             input_trans = self.W(input)
             v = self.non_lin(input_trans)
         v = v - input
-        v = self.gamma.T*v
-        v = v@self.sig@self.sig.T
+        v = self.gamma.T * v
+        v = v @ self.sig @ self.sig.T
         return v
-    
+
     def set_weight(self):
         pass
 
@@ -113,6 +120,7 @@ class NeuralDyn(torch.nn.Module):
             init.xavier_uniform_(m.weight)
             # init.constant_(m.bias, 0)
 
+
 class rand_RNN(torch.nn.Module):
     def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
@@ -120,9 +128,60 @@ class rand_RNN(torch.nn.Module):
         self.out_dim = out_dim
         # self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
         self.W_rec = nn.Linear(hid_dim, hid_dim, bias=True)
-        self.W_out = nn.Linear(hid_dim, out_dim, bias = False)
+        self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
-        self.W2 = nn.Linear(out_dim, hid_dim, bias = True)
+        self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
+        self.is_set_weight = False
+        self.non_lin = non_lin
+        # self.non_lin = nn.LeakyReLU(0.1)
+        # self.non_lin = torch.nn.Tanh()
+        self.dt = dt
+
+    def forward(self, hidden, input=None):
+        v = self.cal_v(hidden, input)
+        nbatch = hidden.shape[0]
+        return (
+            hidden
+            + self.dt * v
+            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.out_dim).to(hidden))
+            @ self.sig.T
+        )
+
+    def set_weight(self):
+        W_rec_tilde = self.W2.weight
+        self.W_out.weight = self.W1.weight
+        self.sig = torch.linalg.solve(
+            self.W1.weight @ self.W1.weight.T, self.W1.weight.T, left=False
+        )
+        self.W_rec.weight = Parameter(W_rec_tilde @ self.W1.weight)
+        self.W_rec.bias = Parameter(self.W2.bias)
+        self.is_set_weight = True
+
+    # calculate the dynamics of the hidden state
+    def cal_v(self, hidden):
+        v = -hidden + self.non_lin(self.W_rec(hidden))
+        return v
+
+    # calculate the dynamics (score function) of the output
+    def score(self, sample):
+        internal_score = -sample + self.W1(self.non_lin(self.W2(sample)))
+        return internal_score
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            # init.constant_(m.bias, 0)
+
+class CelegansRNN(torch.nn.Module):
+    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001, non_lin=nn.LeakyReLU()):
+        super().__init__()
+        self.hid_dim = hid_dim
+        self.out_dim = out_dim
+        # self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
+        self.W_rec = nn.Linear(hid_dim, hid_dim, bias=True)
+        self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
+        self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
+        self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
         self.is_set_weight = False
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
@@ -135,34 +194,41 @@ class rand_RNN(torch.nn.Module):
             nn.Linear(hid_dim, out_dim),
         )
         self.Win_rec = nn.Sequential(
-            nn.Linear(in_dim, hid_dim*2),
+            nn.Linear(in_dim, hid_dim * 2),
             non_lin,
-            nn.Linear(hid_dim*2, hid_dim),
+            nn.Linear(hid_dim * 2, hid_dim),
         )
-
 
     def forward(self, hidden, input=None):
         v = self.cal_v(hidden, input)
         nbatch = hidden.shape[0]
-        return hidden + self.dt*v + (math.sqrt(2*self.dt)*torch.randn(nbatch, self.out_dim).to(hidden))@self.sig.T
-    
+        return (
+            hidden
+            + self.dt * v
+            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.out_dim).to(hidden))
+            @ self.sig.T
+        )
+
     def set_weight(self):
         W_rec_tilde = self.W2.weight
         self.W_out.weight = self.W1.weight
-        self.sig = torch.linalg.solve(self.W1.weight@\
-            self.W1.weight.T, self.W1.weight.T, left=False)
-        self.W_rec.weight = Parameter(W_rec_tilde@self.W1.weight)
+        self.sig = torch.linalg.solve(
+            self.W1.weight @ self.W1.weight.T, self.W1.weight.T, left=False
+        )
+        self.W_rec.weight = Parameter(W_rec_tilde @ self.W1.weight)
         self.W_rec.bias = Parameter(self.W2.bias)
         self.is_set_weight = True
 
+    # calculate the dynamics of the hidden state
     def cal_v(self, hidden, input=None):
         if input is not None:
             input_rec = self.Win_rec(input)
         else:
-            input_rec = 0  
-        v = -hidden + self.non_lin(self.W_rec(hidden)+input_rec)
-        return v      
+            input_rec = 0
+        v = -hidden + self.non_lin(self.W_rec(hidden) + input_rec)
+        return v
 
+    # calculate the dynamics (score function) of the output
     def score(self, sample, input=None):
         if input is not None:
             input_out = self.Win(input)
@@ -172,48 +238,27 @@ class rand_RNN(torch.nn.Module):
             input_rec = 0
         internal_score = -sample + self.W1(self.non_lin(self.W2(sample) + input_rec))
         return internal_score + input_out
-    
+
     def true_input(self, x):
         x = self.Win(x)
         wout = self.W_out.weight
-        return (0.5*wout@wout.T@x.T).T
-    
+        return (0.5 * wout @ wout.T @ x.T).T
+
     def init_weights(self, m):
         if isinstance(m, nn.Linear):
             init.xavier_uniform_(m.weight)
             # init.constant_(m.bias, 0)
 
-
-
-class RNN(torch.nn.Module):
-    def __init__(self, in_dim, out_dim, hid_dim):
-        super().__init__()
-        self.in_dim = in_dim
-        self.out_dim = out_dim
-        self.hid_dim = hid_dim
-        self.w_in = nn.Linear(in_dim, hid_dim, bias=True)
-        self.w_out = nn.Linear(hid_dim, out_dim, bias=True)
-        self.w_hh = nn.Linear(hid_dim, hid_dim, bias=True)
-    
-    def forward(self,initial_state):
-        #TODO add input here
-        next = self.w_hh(initial_state)
-        next = torch.tanh(next)
-        return next
-
-    # calculate the log determinant of the function at hidden_state
-    def cal_logdet(self, hidden_state):
-        batch_size = hidden_state.shape[0]
-        hid_dim = hidden_state.shape[1]
-        ans = torch.zeros(batch_size, 1).to(hidden_state)
-        for i in range(batch_size):
-            jac = jacobian(self.forward, hidden_state[i], create_graph=True) 
-            ans[i] = torch.linalg.slogdet(jac)[1]
-        return ans
-
 class SparseNet(nn.Module):
-
-    def __init__(self, input_dim:int, hidden_dim:int, r_lr:float=0.1, lmda:float=5e-3, maxiter:int=500, device:torch.device=None):
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        r_lr: float = 0.1,
+        lmda: float = 5e-3,
+        maxiter: int = 500,
+        device: torch.device = None,
+    ):
         super(SparseNet, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -230,7 +275,11 @@ class SparseNet(nn.Module):
         self.normalize_weights()
 
     def inference(self, img_batch):
-        r = torch.zeros((img_batch.shape[0], self.hidden_dim), requires_grad=True, device=self.device)
+        r = torch.zeros(
+            (img_batch.shape[0], self.hidden_dim),
+            requires_grad=True,
+            device=self.device,
+        )
         converged = False
         # SGD
         optim = torch.optim.SGD([r], lr=self.r_lr)
@@ -275,9 +324,8 @@ class SparseNet(nn.Module):
         pred = self.U(r)
         return pred
 
-    
-class Autoencoder(nn.Module):
 
+class Autoencoder(nn.Module):
     def __init__(self, hidden_dim):
         super(Autoencoder, self).__init__()
         self.hidden_dim = hidden_dim
@@ -294,7 +342,7 @@ class Autoencoder(nn.Module):
             nn.Conv2d(16, 16, kernel_size=4, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
-            # 16 x 9 x 9 
+            # 16 x 9 x 9
             nn.Conv2d(16, 10, kernel_size=4),
             nn.BatchNorm2d(10),
             nn.ReLU(),
@@ -310,8 +358,7 @@ class Autoencoder(nn.Module):
             nn.Linear(64, 10 * 6 * 6),
             nn.ReLU(),
             nn.Unflatten(1, (10, 6, 6)),
-
-            # 10 x 6 x 6 
+            # 10 x 6 x 6
             nn.ConvTranspose2d(10, 16, kernel_size=4),
             nn.BatchNorm2d(16),
             nn.ReLU(),
@@ -325,7 +372,7 @@ class Autoencoder(nn.Module):
             nn.ReLU(),
             # 16 x 24 x 24
             nn.ConvTranspose2d(16, 1, kernel_size=5),
-        ) 
+        )
 
     def forward(self, x):
         enc = self.encoder(x)

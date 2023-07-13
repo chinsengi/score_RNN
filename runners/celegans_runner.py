@@ -42,7 +42,7 @@ class Celegans():
         # train the model
         nepoch = self.args.nepochs
         model.train()
-        model = torch.compile(model)
+        # model = torch.compile(model)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         if self.args.resume:
             load(f"./model/{model.__class__.__name__}_celegans_chkpt", model, optimizer)
