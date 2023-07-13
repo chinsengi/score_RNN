@@ -129,16 +129,16 @@ class rand_RNN(torch.nn.Module):
         # self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
-        # self.Win = nn.Sequential(
-        #     nn.Linear(in_dim, hid_dim),
-        #     nn.ReLU(),
-        #     nn.Linear(hid_dim, out_dim),
-        # )
-        # self.Win_rec = nn.Sequential(
-        #     nn.Linear(in_dim, hid_dim*2),
-        #     nn.ReLU(),
-        #     nn.Linear(hid_dim*2, hid_dim),
-        # )
+        self.Win = nn.Sequential(
+            nn.Linear(in_dim, hid_dim),
+            non_lin,
+            nn.Linear(hid_dim, out_dim),
+        )
+        self.Win_rec = nn.Sequential(
+            nn.Linear(in_dim, hid_dim*2),
+            non_lin,
+            nn.Linear(hid_dim*2, hid_dim),
+        )
 
 
     def forward(self, hidden, input=None):
