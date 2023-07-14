@@ -36,10 +36,11 @@ class WhiteConnectomeData:
         self.white_neurontypesdf = pd.read_csv(join(basepath, 'white_neuron_types.csv'), skipinitialspace = True)
         self.neuron_list = self.__generate_neuron_list()
         self.name_neuron_dict = {neuron.name:neuron for neuron in self.neuron_list}
+        self.neuron_names = list(self.name_neuron_dict.keys())
         self.__overwrite_neuron_types()
         self.neuron_mask_dict = self.__generate_neuron_masks()  
         self.synapses_dict = self.__generate_weight_matrices()
-        self.N = len(self.neuron_list)
+        self.num_neurons = len(self.neuron_list)
 
     def __generate_neuron_list(self):
         neuron_list = []

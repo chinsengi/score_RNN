@@ -85,9 +85,9 @@ class NeuralDyn(torch.nn.Module):
     def __init__(self, hid_dim, synap=True, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
         self.hid_dim = hid_dim
-        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
-        self.sig = Parameter(torch.eye(hid_dim, requires_grad=True))
-        self.W = nn.Linear(hid_dim, hid_dim, bias=True)
+        self.gamma = Parameter(torch.ones(self.hid_dim, 1, requires_grad=True))
+        self.sig = Parameter(torch.eye(self.hid_dim, requires_grad=True))
+        self.W = nn.Linear(self.hid_dim, self.hid_dim, bias=True)
         self.W_out = nn.Identity()
         self.non_lin = non_lin
         self.dt = dt
@@ -122,7 +122,7 @@ class NeuralDyn(torch.nn.Module):
 
 
 class rand_RNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, in_dim=3, dt=0.001, non_lin=nn.ReLU()):
+    def __init__(self, hid_dim, out_dim, dt=0.001, non_lin=nn.ReLU()):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
@@ -174,15 +174,16 @@ class rand_RNN(torch.nn.Module):
 
 
 class CelegansRNN(torch.nn.Module):
-    def __init__(self, hid_dim, in_dim, connectome, dt=0.001, non_lin=nn.LeakyReLU()):
+    def __init__(self, in_dim, observed_mask, connectome, dt=0.001, non_lin=nn.LeakyReLU()):
         super().__init__()
-        self.hid_dim = hid_dim  # number of neurons
+        self.hid_dim = connectome.num_neurons  # number of all neurons
         self.in_dim = in_dim  # number of sensory neurons
-        self.gamma = Parameter(torch.ones(hid_dim, 1, requires_grad=True))
-        self.v_rest = Parameter(torch.zeros(hid_dim, 1, requires_grad=True))
-        self.W_elec = Parameter(torch.rand(hid_dim, hid_dim))
-        self.W_chem = nn.Linear(hid_dim, hid_dim, bias=False)
-        self.E = nn.Linear(hid_dim, hid_dim, bias=False)
+        self.observed_mask = observed_mask  # mask for measured (observed) neurons
+        self.gamma = Parameter(torch.ones(self.hid_dim, 1, requires_grad=True))
+        self.v_rest = Parameter(torch.zeros(self.hid_dim, 1, requires_grad=True))
+        self.W_elec = Parameter(torch.rand(self.hid_dim, self.hid_dim))
+        self.W_chem = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
+        self.E = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.connectome = connectome
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
@@ -190,10 +191,13 @@ class CelegansRNN(torch.nn.Module):
         self.dt = dt
 
         self.Win = nn.Sequential(
-            nn.Linear(1, hid_dim),
+            nn.Linear(1, self.hid_dim*2),
             non_lin,
-            nn.Linear(hid_dim, in_dim),
+            nn.Linear(self.hid_dim*2, in_dim),
         )
+
+        # sensory mask
+        self.sensory_mask = connectome.neuron_mask_dict["sensory"]
 
     def forward(self, hidden, input=None):
         v = self.score(hidden, input)
@@ -203,7 +207,8 @@ class CelegansRNN(torch.nn.Module):
             + self.dt * v
             + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))
         )
-    '''
+
+    """
     calculate the dynamics (score function) of the output
 
     Args:
@@ -211,7 +216,8 @@ class CelegansRNN(torch.nn.Module):
         input: sensory input
         mask: whether to mask the weight (enforce sparsity)
         sym_elec: whether to symmetrize the electric synapse
-    '''
+    """
+
     def score(self, sample, input, mask=False, sym_elec=False):
         if mask:
             self.mask_weight()
@@ -225,7 +231,7 @@ class CelegansRNN(torch.nn.Module):
             + self.v_rest
         )
         sensory_input = self.Win(input)
-        _score[:, : self.in_dim] += sensory_input
+        _score[:, self.sensory_mask] += sensory_input
         return _score * self.gamma
 
     def init_weights(self, m):
@@ -238,7 +244,6 @@ class CelegansRNN(torch.nn.Module):
         pass
         # W_c = torch.mul(self.sparsity_c, self.magnitudes_c * self.magnitude_scaling_factor_chem)
         # W_e = torch.mul(self.sparsity_e, (self.magnitudes_e + self.magnitudes_e.transpose(0,1)) * self.magnitude_scaling_factor_elec)
-
 
     # create a symmetric matrix out of X
     @staticmethod
