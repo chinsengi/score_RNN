@@ -174,11 +174,10 @@ class rand_RNN(torch.nn.Module):
 
 
 class CelegansRNN(torch.nn.Module):
-    def __init__(self, in_dim, observed_mask, connectome, dt=0.001, non_lin=nn.LeakyReLU()):
+    def __init__(self, connectome, sensory_dim, dt=0.001, non_lin=nn.LeakyReLU()):
         super().__init__()
         self.hid_dim = connectome.num_neurons  # number of all neurons
-        self.in_dim = in_dim  # number of sensory neurons
-        self.observed_mask = observed_mask  # mask for measured (observed) neurons
+        # self.observed_mask = observed_mask  # mask for measured (observed) neurons
         self.gamma = Parameter(torch.ones(self.hid_dim, 1, requires_grad=True))
         self.v_rest = Parameter(torch.zeros(self.hid_dim, 1, requires_grad=True))
         self.W_elec = Parameter(torch.rand(self.hid_dim, self.hid_dim))
@@ -190,16 +189,18 @@ class CelegansRNN(torch.nn.Module):
         # self.non_lin = nn.Tanh()
         self.dt = dt
 
-        self.Win = nn.Sequential(
-            nn.Linear(1, self.hid_dim*2),
-            non_lin,
-            nn.Linear(self.hid_dim*2, in_dim),
-        )
-
         # sensory mask
         self.sensory_mask = connectome.neuron_mask_dict["sensory"]
+        self.in_dim = torch.sum(self.sensory_mask).item() # number of sensory neurons
 
-    def forward(self, hidden, input=None):
+        # sensory input
+        self.Win = nn.Sequential(
+            nn.Linear(sensory_dim, self.hid_dim*2),
+            non_lin,
+            nn.Linear(self.hid_dim*2, self.in_dim),
+        )
+
+    def forward(self, hidden, input):
         v = self.score(hidden, input)
         nbatch = hidden.shape[0]
         return (

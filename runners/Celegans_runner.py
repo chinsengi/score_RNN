@@ -34,26 +34,19 @@ class Celegans:
         connectome = WhiteConnectomeData("./data/worm_cnct", device=self.device)
 
         # set up dataloader
-        train_dataset = CelegansData()
+        train_dataset = CelegansData(connectome)
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=64, shuffle=True
         )
 
-        # get sensory neuron info
+        # get measured neuron info
         n_observed = train_dataset.activity_worms.shape[-1]
         observed_mask = torch.tensor(
-            [
-                1 if n in train_dataset.name_list else 0
-                for n in connectome.neuron_names
-            ]
+            [1 if n in train_dataset.name_list else 0 for n in connectome.neuron_names]
         )
 
         # set up the model
-        model = CelegansRNN(
-            n_observed,
-            observed_mask,
-            connectome,
-        ).to(self.device)
+        model = CelegansRNN(connectome, train_dataset.odor_dim).to(self.device)
         # model = torch.nn.DataParallel(model).to(self.args.device)
 
         # annealing noise
@@ -100,6 +93,7 @@ class Celegans:
                 tb_logger.add_scalar("loss", loss, global_step=step)
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
 
+            train_dataset.reimpute(model)
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
         save(
             model,
@@ -115,7 +109,7 @@ class Celegans:
         name_list = dataset.name_list
 
         # load model weights and set model
-        model = rand_RNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
+        model = CelegansRNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
         load(
             f"./model/{self.args.run_id}/{model.__class__.__name__}_celegans_chkpt",
             model,
