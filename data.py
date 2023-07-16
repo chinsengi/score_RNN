@@ -85,7 +85,9 @@ class LAPData(Dataset):
 
 
 class CelegansData(Dataset):
-    def __init__(self, connectome: WhiteConnectomeData):
+    def __init__(self, connectome: WhiteConnectomeData, device):
+        super().__init__()
+        self.device = device
         # load datasets
         N_dataset = 21
         N_cell = 189
@@ -162,34 +164,42 @@ class CelegansData(Dataset):
         odor_worms = odor_datasets[:, :, T_start:]
 
         # set internal data
-        self.activity_worms = np.moveaxis(
-            activity_worms[:, :, :774], [0, 1, 2], [1, 2, 0]
-        )  # [time, trial, neuron]
-        self.odor_worms = np.moveaxis(
-            odor_worms[:, :, :774], [0, 1, 2], [1, 2, 0]
-        )  # [time, trial, odor]
+        self.activity_worms = torch.tensor(
+            np.moveaxis(activity_worms[:, :, :774], [0, 1, 2], [1, 2, 0])
+        ).float()  # [time, trial, neuron]
+        self.odor_worms = torch.tensor(
+            np.moveaxis(odor_worms[:, :, :774], [0, 1, 2], [1, 2, 0])
+        ).float()  # [time, trial, odor]
         self.observed_activity = self.activity_worms.reshape(-1, 189)
         self.odor = self.odor_worms.reshape(-1, 3)
         self.odor_dim = self.odor.shape[1]
 
+        self.observed_mask = [(n in self.name_list) for n in connectome.neuron_names]
+
         # initialize the missing activity with gaussian noise using the mean and variance of the observed activity
-        self.observed_mask = torch.tensor(
-            [1 if n in self.name_list else 0 for n in connectome.neuron_names]
-        )
-        mean_activity = self.observed_activity.mean()
-        std_activity = self.observed_activity.std()
-        self.all_activity = (
-            torch.randn(
-                (
-                    self.activity_worms.shape[0],
-                    self.activity_worms.shape[1],
-                    connectome.num_neurons,
-                )
+        # mean_activity = self.observed_activity.mean()
+        # std_activity = self.observed_activity.std()
+        # self.all_activity = (
+        #     torch.randn(
+        #         (
+        #             self.activity_worms.shape[0],
+        #             self.activity_worms.shape[1],
+        #             connectome.num_neurons,
+        #         )
+        #     )
+        #     * std_activity
+        #     + mean_activity
+        # )
+
+        # initialize the missing activity with 0 and observed activity with the true value
+        self.all_activity = torch.zeros(
+            (
+                self.activity_worms.shape[0],
+                self.activity_worms.shape[1],
+                connectome.num_neurons,
             )
-            * std_activity
-            + mean_activity
         )
-        self.all_activity[:, :, self.observed_mask] = self.observed_activity
+        self.all_activity[:, :, self.observed_mask] = self.activity_worms
         self.activity_samples = self.all_activity.reshape(-1, connectome.num_neurons)
 
     def reimpute(self, model):
@@ -198,16 +208,16 @@ class CelegansData(Dataset):
         for trial in range(n_trials):
             for t in range(n_timestep - 1):
                 self.all_activity[t + 1, trial, :] = model(
-                    self.all_activity[t, trial, :].unsqueeze(0),
-                    self.odor[t, trial, :].unsqueeze(0),
-                ).squeeze(0)
+                    self.all_activity[t, trial, :].unsqueeze(0).to(self.device),
+                    self.odor_worms[t, trial, :].unsqueeze(0).to(self.device),
+                ).squeeze(0).detach()
                 self.all_activity[
                     t + 1, trial, self.observed_mask
-                ] = self.observed_activity[t + 1, trial, :]
+                ] = self.activity_worms[t + 1, trial, :]
         self.activity_samples = self.all_activity.reshape(-1, self.total_neuron_cnt)
 
     def __len__(self):
-        return self.activity.shape[0]
+        return self.activity_samples.shape[0]
 
     def __getitem__(self, idx):
         return self.odor[idx], self.activity_samples[idx]

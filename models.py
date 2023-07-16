@@ -174,13 +174,13 @@ class rand_RNN(torch.nn.Module):
 
 
 class CelegansRNN(torch.nn.Module):
-    def __init__(self, connectome, sensory_dim, dt=0.001, non_lin=nn.LeakyReLU()):
+    def __init__(self, connectome, sensory_input_dim, dt=0.001, non_lin=nn.Softplus()):
         super().__init__()
         self.hid_dim = connectome.num_neurons  # number of all neurons
         # self.observed_mask = observed_mask  # mask for measured (observed) neurons
-        self.gamma = Parameter(torch.ones(self.hid_dim, 1, requires_grad=True))
-        self.v_rest = Parameter(torch.zeros(self.hid_dim, 1, requires_grad=True))
-        self.W_elec = Parameter(torch.rand(self.hid_dim, self.hid_dim))
+        self.gamma = Parameter(torch.ones(1, self.hid_dim, requires_grad=True))
+        self.v_rest = Parameter(torch.zeros(1, self.hid_dim, requires_grad=True))
+        self.W_elec = Parameter(torch.zeros(self.hid_dim, self.hid_dim))
         self.W_chem = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.E = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.connectome = connectome
@@ -190,15 +190,16 @@ class CelegansRNN(torch.nn.Module):
         self.dt = dt
 
         # sensory mask
-        self.sensory_mask = connectome.neuron_mask_dict["sensory"]
-        self.in_dim = torch.sum(self.sensory_mask).item() # number of sensory neurons
+        self.sensory_mask = connectome.neuron_mask_dict["sensory"].bool().squeeze()
+        self.in_dim = int(torch.sum(self.sensory_mask).item()) # number of sensory neurons
 
         # sensory input
         self.Win = nn.Sequential(
-            nn.Linear(sensory_dim, self.hid_dim*2),
+            nn.Linear(sensory_input_dim, self.hid_dim*2),
             non_lin,
             nn.Linear(self.hid_dim*2, self.in_dim),
         )
+        self.init_weights()
 
     def forward(self, hidden, input):
         v = self.score(hidden, input)
@@ -224,6 +225,8 @@ class CelegansRNN(torch.nn.Module):
             self.mask_weight()
         if sym_elec:
             W_elec = self.symmetric(self.W_elec)
+        else:
+            W_elec = self.W_elec
         trans_input = self.W_chem(self.non_lin(sample))
         _score = (
             -sample
@@ -235,10 +238,11 @@ class CelegansRNN(torch.nn.Module):
         _score[:, self.sensory_mask] += sensory_input
         return _score * self.gamma
 
-    def init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            init.xavier_uniform_(m.weight)
-            # init.constant_(m.bias, 0)
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                init.constant_(m.weight, 0)
+                # init.constant_(m.bias, 0)
 
     # mask the weight matrix according to the connectome
     def mask_weight(self):

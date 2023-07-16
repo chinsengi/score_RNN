@@ -34,16 +34,13 @@ class Celegans:
         connectome = WhiteConnectomeData("./data/worm_cnct", device=self.device)
 
         # set up dataloader
-        train_dataset = CelegansData(connectome)
+        train_dataset = CelegansData(connectome, self.device)
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=64, shuffle=True
         )
 
         # get measured neuron info
-        n_observed = train_dataset.activity_worms.shape[-1]
-        observed_mask = torch.tensor(
-            [1 if n in train_dataset.name_list else 0 for n in connectome.neuron_names]
-        )
+        observed_mask = train_dataset.observed_mask
 
         # set up the model
         model = CelegansRNN(connectome, train_dataset.odor_dim).to(self.device)
@@ -62,8 +59,6 @@ class Celegans:
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         if self.args.resume:
             load(f"./model/{model.__class__.__name__}_celegans_chkpt", model, optimizer)
-        # initialize unobserved neurons with random values
-        y = torch.randn(train_dataset.out_dim).to(self.args.device, torch.float32)
         for epoch in tqdm(range(nepoch)):
             # decrease the noise level
             if epoch % (nepoch // n_level) == 0:
@@ -83,18 +78,20 @@ class Celegans:
                 h_noisy = h + torch.randn_like(h) * noise_level
                 loss = 0.5 * (
                     (model.score(h_noisy, odor) - (h - h_noisy) / noise_level**2) ** 2
-                ).sum(dim=-1).mean(dim=0)
+                )[:, observed_mask].sum(dim=-1).mean(dim=0)
 
                 # backpropagation
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
-
-            train_dataset.reimpute(model)
+            if (epoch + 1) % 5 == 0:
+                train_dataset.reimpute(model)
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
+
         save(
             model,
             optimizer,
@@ -115,7 +112,6 @@ class Celegans:
             model,
         )
         with torch.no_grad():
-            model.set_weight()
             initial_state = self.get_initial_state(model, activity)
             model.dt = 1e-3
             _, trace = self.gen_trace(model, initial_state, 774, dataset)
