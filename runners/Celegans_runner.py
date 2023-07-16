@@ -21,6 +21,11 @@ class Celegans:
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
+        # get connectome data
+        self.connectome = WhiteConnectomeData("./data/worm_cnct", device=self.device)
+
+        # set up dataloader
+        self.dataset = CelegansData(self.connectome, self.device)
 
     def train(self):
         # set up tensorboard logging
@@ -30,21 +35,17 @@ class Celegans:
 
         tb_logger = tensorboardX.SummaryWriter(log_dir=tb_path)
 
-        # get connectome data
-        connectome = WhiteConnectomeData("./data/worm_cnct", device=self.device)
-
-        # set up dataloader
-        train_dataset = CelegansData(connectome, self.device)
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=64, shuffle=True
-        )
-
         # get measured neuron info
-        observed_mask = train_dataset.observed_mask
+        observed_mask = self.dataset.observed_mask
 
         # set up the model
-        model = CelegansRNN(connectome, train_dataset.odor_dim).to(self.device)
+        model = CelegansRNN(self.connectome, self.dataset.odor_dim).to(self.device)
         # model = torch.nn.DataParallel(model).to(self.args.device)
+
+        # set up dataloader
+        train_loader = torch.utils.data.DataLoader(
+            self.dataset, batch_size=64, shuffle=True
+        )
 
         # annealing noise
         n_level = 10
@@ -58,7 +59,11 @@ class Celegans:
         # model = torch.compile(model)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.001)
         if self.args.resume:
-            load(f"./model/{model.__class__.__name__}_celegans_chkpt", model, optimizer)
+            load(
+                f"./model/Celegans/{self.args.run_id}/{model.__class__.__name__}_chkpt.pth",
+                model,
+                optimizer,
+            )
         for epoch in tqdm(range(nepoch)):
             # decrease the noise level
             if epoch % (nepoch // n_level) == 0:
@@ -89,32 +94,29 @@ class Celegans:
                 tb_logger.add_scalar("loss", loss, global_step=step)
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
             if (epoch + 1) % 5 == 0:
-                train_dataset.reimpute(model)
+                self.dataset.reimpute(model)
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
         save(
             model,
             optimizer,
-            f"./model/{self.args.run_id}",
-            f"{model.__class__.__name__}_celegans_ep{epoch}",
+            f"./model/Celegans/{self.args.run_id}",
+            f"{model.__class__.__name__}_chkpt.pth",
         )
 
     def test(self):
         # set up dataloader
-        dataset = CelegansData()
-        activity = dataset.activity_worms
-        name_list = dataset.name_list
+        activity = self.dataset.activity_worms
+        name_list = self.dataset.name_list
 
         # load model weights and set model
-        model = CelegansRNN(self.args.hid_dim, dataset.out_dim).to(self.args.device)
+        model = CelegansRNN(self.connectome, self.dataset.odor_dim, dt=1e-4).to(self.device)
         load(
-            f"./model/{self.args.run_id}/{model.__class__.__name__}_celegans_chkpt",
+            f"./model/Celegans/{self.args.run_id}/{model.__class__.__name__}_chkpt.pth",
             model,
         )
         with torch.no_grad():
-            initial_state = self.get_initial_state(model, activity)
-            model.dt = 1e-3
-            _, trace = self.gen_trace(model, initial_state, 774, dataset)
+            trace = self.dataset.reconstruct(model)[:,:,self.dataset.observed_mask]
             trace = trace.detach().cpu().numpy()
             color_list = ["green", "red"]
             num_neuron = 6
@@ -146,7 +148,7 @@ class Celegans:
                     neuron_name = name_list[neuron_index]
                     ax.set_title(f"neuron:{neuron_name}, corrcoef:{corrcoef}")
                     ax.legend()
-                savefig(filename=f"celegans_trace_trial{trial}.png")
+                savefig(path='./image/celegans', filename=f"celegans_trace_trial{trial}.png")
                 plt.close()
 
     """

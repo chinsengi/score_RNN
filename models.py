@@ -181,6 +181,7 @@ class CelegansRNN(torch.nn.Module):
         self.gamma = Parameter(torch.ones(1, self.hid_dim, requires_grad=True))
         self.v_rest = Parameter(torch.zeros(1, self.hid_dim, requires_grad=True))
         self.W_elec = Parameter(torch.zeros(self.hid_dim, self.hid_dim))
+        self.sig = Parameter(torch.eye(self.hid_dim, requires_grad=True))
         self.W_chem = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.E = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.connectome = connectome
@@ -207,7 +208,7 @@ class CelegansRNN(torch.nn.Module):
         return (
             hidden
             + self.dt * v
-            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))
+            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))@self.sig.T
         )
 
     """
@@ -236,7 +237,7 @@ class CelegansRNN(torch.nn.Module):
         )
         sensory_input = self.Win(input)
         _score[:, self.sensory_mask] += sensory_input
-        return _score * self.gamma
+        return (_score * self.gamma)@ self.sig.T @ self.sig
 
     def init_weights(self):
         for m in self.modules():
