@@ -6,7 +6,7 @@ import numpy as np
 import scipy.io as sio
 from torch.distributions import MultivariateNormal, MixtureSameFamily
 from torch.distributions.laplace import Laplace
-from mv_laplace import MvLaplaceSampler
+# from mv_laplace import MvLaplaceSampler
 from connectome_preprocess import WhiteConnectomeData
 
 
