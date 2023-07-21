@@ -122,34 +122,41 @@ class Celegans:
             num_neuron = 6
             t_steps = 80
             time = np.arange(0, t_steps)
-            for trial in range(21):
-                logging.info(f"generating trial {trial}")
-                _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
-                for neuron_index in range(num_neuron):
-                    ax = axes[neuron_index // 2, neuron_index % 2]
-                    ax.plot(
-                        time,
-                        activity[:t_steps, trial, neuron_index],
-                        label="true",
-                        color=color_list[0],
-                    )
-                    ax.plot(
-                        time,
-                        trace[:t_steps, trial, neuron_index],
-                        label="generated",
-                        color=color_list[1],
-                    )
-                    data = np.zeros([2, t_steps])
-                    data[0, :] = activity[:t_steps, trial, neuron_index]
-                    data[1, :] = trace[:t_steps, trial, neuron_index]
-                    corrcoef = np.corrcoef(data)
-                    # logging.info(f"{corrcoef.shape}")
-                    corrcoef = corrcoef[0, 1]
-                    neuron_name = name_list[neuron_index]
-                    ax.set_title(f"neuron:{neuron_name}, corrcoef:{corrcoef}")
-                    ax.legend()
-                savefig(path='./image/celegans', filename=f"celegans_trace_trial{trial}.png")
-                plt.close()
+            _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
+            for neuron_index in range(num_neuron):
+                ax = axes[neuron_index // 2, neuron_index % 2]
+                ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+                ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+                ax.legend(["true", "generated"])
+            savefig(path='./image/celegans', filename=f"celegans_trace_trial.png")
+            # for trial in range(21):
+            #     logging.info(f"generating trial {trial}")
+            #     _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
+            #     for neuron_index in range(num_neuron):
+            #         ax = axes[neuron_index // 2, neuron_index % 2]
+            #         ax.plot(
+            #             time,
+            #             activity[:t_steps, trial, neuron_index],
+            #             label="true",
+            #             color=color_list[0],
+            #         )
+            #         ax.plot(
+            #             time,
+            #             trace[:t_steps, trial, neuron_index],
+            #             label="generated",
+            #             color=color_list[1],
+            #         )
+            #         data = np.zeros([2, t_steps])
+            #         data[0, :] = activity[:t_steps, trial, neuron_index]
+            #         data[1, :] = trace[:t_steps, trial, neuron_index]
+            #         corrcoef = np.corrcoef(data)
+            #         # logging.info(f"{corrcoef.shape}")
+            #         corrcoef = corrcoef[0, 1]
+            #         neuron_name = name_list[neuron_index]
+            #         ax.set_title(f"neuron:{neuron_name}, corrcoef:{corrcoef}")
+            #         ax.legend()
+            #     savefig(path='./image/celegans', filename=f"celegans_trace_trial{trial}.png")
+            #     plt.close()
 
     """
         get the initial state for the hidden states

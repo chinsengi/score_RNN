@@ -220,8 +220,8 @@ class CelegansData(Dataset):
 
     def set_type(self, odor=0):
         if odor == 0:
-            tmp_activity = self.all_activity[~self.odor_mask, :, :]
-            tmp_odor = self.odor_worms[~self.odor_mask, :, :]
+            tmp_activity = self.all_activity[:80, :, :]
+            tmp_odor = self.odor_worms[:80, :, :]
         elif odor == 1:
             tmp_activity = self.all_activity[self.odor_mask, :, :]
             tmp_odor = self.odor_worms[self.odor_mask, :, :]
