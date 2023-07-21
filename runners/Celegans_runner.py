@@ -88,7 +88,7 @@ class Celegans:
                 # backpropagation
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
@@ -110,7 +110,7 @@ class Celegans:
         name_list = self.dataset.name_list
 
         # load model weights and set model
-        model = CelegansRNN(self.connectome, self.dataset.odor_dim, dt=1e-4).to(self.device)
+        model = CelegansRNN(self.connectome, self.dataset.odor_dim, dt=1e-3).to(self.device)
         load(
             f"./model/Celegans/{self.args.run_id}/{model.__class__.__name__}_chkpt.pth",
             model,
@@ -120,7 +120,7 @@ class Celegans:
             trace = trace.detach().cpu().numpy()
             color_list = ["green", "red"]
             num_neuron = 6
-            t_steps = 774
+            t_steps = 80
             time = np.arange(0, t_steps)
             for trial in range(21):
                 logging.info(f"generating trial {trial}")
