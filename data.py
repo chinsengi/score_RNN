@@ -175,6 +175,8 @@ class CelegansData(Dataset):
         self.odor_dim = self.odor.shape[1]
 
         self.observed_mask = [(n in self.name_list) for n in connectome.neuron_names]
+        # index of time steps that have odor (117 time steps)
+        self.odor_mask = (torch.sum(self.odor_worms[:,0,:], axis=1) == 1)
 
         # initialize the missing activity with gaussian noise using the mean and variance of the observed activity
         # mean_activity = self.observed_activity.mean()
@@ -203,8 +205,8 @@ class CelegansData(Dataset):
         self.activity_samples = self.all_activity.reshape(-1, connectome.num_neurons)
 
     def reimpute(self, model):
-        n_trials = self.activity_worms.shape[1]
-        n_timestep = self.activity_worms.shape[0]
+        n_trials = self.all_activity.shape[1]
+        n_timestep = self.all_activity.shape[0]
         for trial in range(n_trials):
             for t in range(n_timestep - 1):
                 self.all_activity[t + 1, trial, :] = model(
@@ -215,6 +217,19 @@ class CelegansData(Dataset):
                     t + 1, trial, self.observed_mask
                 ] = self.activity_worms[t + 1, trial, :]
         self.activity_samples = self.all_activity.reshape(-1, self.total_neuron_cnt)
+
+    def set_type(self, odor=0):
+        if odor == 0:
+            tmp_activity = self.all_activity[~self.odor_mask, :, :]
+            tmp_odor = self.odor_worms[~self.odor_mask, :, :]
+        elif odor == 1:
+            tmp_activity = self.all_activity[self.odor_mask, :, :]
+            tmp_odor = self.odor_worms[self.odor_mask, :, :]
+        else:
+            tmp_activity = self.all_activity
+            tmp_odor = self.odor_worms
+        self.activity_samples = tmp_activity.reshape(-1, self.total_neuron_cnt)
+        self.odor = tmp_odor.reshape(-1, 3)
 
     def reconstruct(self, model):
         n_trials = self.activity_worms.shape[1]
