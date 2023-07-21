@@ -120,7 +120,7 @@ class Celegans:
             trace = trace.detach().cpu().numpy()
             color_list = ["green", "red"]
             num_neuron = 6
-            t_steps = 774
+            t_steps = 80
             time = np.arange(0, t_steps)
             for trial in range(21):
                 logging.info(f"generating trial {trial}")

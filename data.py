@@ -216,11 +216,10 @@ class CelegansData(Dataset):
                 ] = self.activity_worms[t + 1, trial, :]
         self.activity_samples = self.all_activity.reshape(-1, self.total_neuron_cnt)
 
-    def reconstruct(self, model):
+    def reconstruct(self, model, warmup=5, timestep=None):
         n_trials = self.activity_worms.shape[1]
-        n_timestep = self.activity_worms.shape[0]
+        n_timestep = self.activity_worms.shape[0] if timestep is None else timestep
         reconst = torch.zeros_like(self.all_activity)
-        warmup = 100
         reconst[:warmup] = self.all_activity[:warmup] 
         for trial in range(n_trials):
             for t in range(warmup, n_timestep):
