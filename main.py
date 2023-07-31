@@ -23,7 +23,6 @@ def parse_args_and_config():
     parser.add_argument('--seed', type=int, default=3407, help='Random seed')
     parser.add_argument('--run_id', type=str, default='0', help='id used to identify different runs')
     parser.add_argument('--comment', type=str, default='')
-    parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--verbose', type=str, default='info', help='Verbose level: info | debug | warning | critical')
     parser.add_argument('--nepochs', type=int, default=400)
     parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | ae | none')
@@ -33,6 +32,10 @@ def parse_args_and_config():
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")
+    parser.add_argument("--nonlin", type=str, default="tanh", help="nonlinearity used")
+    parser.add_argument('--test', action='store_true', help='specify to enable testing')
+    parser.add_argument('--disable_impute', action='store_true', help='specify whether to impute missing data')
+    parser.add_argument('--impute_freq', type=int, default=20, help='the frequency of imputing missing data')
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()
@@ -68,12 +71,6 @@ def main():
 
     # save the config file
     logging.info(json.dumps(vars(args), indent=2))
-    with open(os.path.join(args.log, 'config.yaml'), 'w') as f:
-        yaml.dump(vars(args), f)
-
-    # print out the runner file   
-    with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
-        logging.info(f.read())
 
     # set random seed
     if args.seed != 0:
@@ -82,6 +79,11 @@ def main():
     try:
         runner = eval(args.runner)(args)
         if not args.test:
+            # print out the runner file   
+            with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
+                logging.info(f.read())
+            with open(os.path.join(args.log, 'config.yaml'), 'w') as f:
+                yaml.dump(vars(args), f)
             runner.train()
         else:
             runner.test()

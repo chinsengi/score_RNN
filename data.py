@@ -202,11 +202,11 @@ class CelegansData(Dataset):
             )
         )
         self.all_activity[:, :, self.observed_mask] = self.activity_worms
-        self.activity_samples = self.all_activity.reshape(-1, connectome.num_neurons)
+        self.set_type(odor=0)
 
-    def reimpute(self, model):
+    def reimpute(self, model, n_timestep=None):
         n_trials = self.all_activity.shape[1]
-        n_timestep = self.all_activity.shape[0]
+        n_timestep = self.all_activity.shape[0] if n_timestep is None else n_timestep
         for trial in range(n_trials):
             for t in range(n_timestep - 1):
                 self.all_activity[t + 1, trial, :] = model(
@@ -216,7 +216,7 @@ class CelegansData(Dataset):
                 self.all_activity[
                     t + 1, trial, self.observed_mask
                 ] = self.activity_worms[t + 1, trial, :]
-        self.activity_samples = self.all_activity.reshape(-1, self.total_neuron_cnt)
+        self.activity_samples = self.all_activity[:n_timestep,:,:].reshape(-1, self.total_neuron_cnt)
 
     def set_type(self, odor=0):
         if odor == 0:
@@ -234,14 +234,17 @@ class CelegansData(Dataset):
     def reconstruct(self, model, warmup=5, timestep=None):
         n_trials = self.activity_worms.shape[1]
         n_timestep = self.activity_worms.shape[0] if timestep is None else timestep
-        reconst = torch.zeros_like(self.all_activity)
+        reconst = torch.zeros_like(self.all_activity[:n_timestep, :, :])
         reconst[:warmup] = self.all_activity[:warmup] 
         for trial in range(n_trials):
             for t in range(warmup, n_timestep):
+                # import pdb; pdb.set_trace()
                 reconst[t, trial, :] = model(
                     reconst[t-1, trial, :].unsqueeze(0).to(self.device),
                     self.odor_worms[t-1, trial, :].unsqueeze(0).to(self.device),
                 ).squeeze(0).detach()
+                idx = torch.abs(reconst[t, trial, :])>3
+                reconst[t, trial, idx] = 0
         return reconst
 
     def __len__(self):

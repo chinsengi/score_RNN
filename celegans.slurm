@@ -4,8 +4,8 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sc256@uw.edu
 #SBATCH --account=amath
-#SBATCH --partition=gpu-rtx6k 
-# SBATCH --partition=ckpt
+# SBATCH --partition=gpu-rtx6k 
+#SBATCH --partition=ckpt
 #SBATCH --nodes=1
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
@@ -16,10 +16,10 @@
 
 # TEST_ONLY=true
 RUN="Celegans"
-RUN_ID="0"
-N_EPOCHS="1000"
+RUN_ID="8"
+N_EPOCHS="10000"
 # Your programs to run.
-python main.py --runner $RUN --run_id $RUN_ID --nepochs $N_EPOCHS 
-python main.py --runner $RUN --run_id $RUN_ID --nepochs $N_EPOCHS --test 
+python main.py --runner $RUN --run_id $RUN_ID --nepochs $N_EPOCHS --nonlin tanh --disable_impute
+python main.py --runner $RUN --run_id $RUN_ID --nonlin tanh --disable_impute --test 
 # wait for all programs to finish
 wait

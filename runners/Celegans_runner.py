@@ -4,7 +4,10 @@ from models import CelegansRNN
 from torch.utils.data import Dataset
 import shutil
 import logging
-
+from scipy.stats import entropy, wasserstein_distance
+import seaborn as sns
+import pandas as pd
+import torch.nn as nn
 try:
     import tensorboardX
 except ModuleNotFoundError:
@@ -27,6 +30,8 @@ class Celegans:
         # set up dataloader
         self.dataset = CelegansData(self.connectome, self.device)
 
+        self.non_lin = nn.Tanh() if args.nonlin == "tanh" else nn.Softplus()
+
     def train(self):
         # set up tensorboard logging
         tb_path = os.path.join(self.args.run, "tensorboard", self.args.run_id)
@@ -39,8 +44,8 @@ class Celegans:
         observed_mask = self.dataset.observed_mask
 
         # set up the model
-        model = CelegansRNN(self.connectome, self.dataset.odor_dim).to(self.device)
-        # model = torch.nn.DataParallel(model).to(self.args.device)
+        model = CelegansRNN(self.connectome, self.dataset.odor_dim, non_lin=self.non_lin).to(self.device)
+        # model = CelegansRNN(self.connectome, self.dataset.odor_dim).to(self.device)
 
         # set up dataloader
         train_loader = torch.utils.data.DataLoader(
@@ -50,7 +55,7 @@ class Celegans:
         # annealing noise
         n_level = 10
         noise_levels = [
-            5 / math.exp(math.log(100) * n / n_level) for n in range(n_level)
+            2 / math.exp(math.log(100) * (n+1) / n_level) for n in range(n_level)
         ]
 
         # train the model
@@ -93,8 +98,8 @@ class Celegans:
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
-            if (epoch + 1) % 5 == 0:
-                self.dataset.reimpute(model)
+            if (epoch + 1) % self.args.impute_freq == 0 and not self.args.disable_impute:
+                self.dataset.reimpute(model,80)
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
         save(
@@ -110,25 +115,55 @@ class Celegans:
         name_list = self.dataset.name_list
 
         # load model weights and set model
-        model = CelegansRNN(self.connectome, self.dataset.odor_dim, dt=1e-3).to(self.device)
+        model = CelegansRNN(self.connectome, self.dataset.odor_dim, non_lin=self.non_lin).to(self.device)
         load(
             f"./model/Celegans/{self.args.run_id}/{model.__class__.__name__}_chkpt.pth",
             model,
         )
         with torch.no_grad():
-            trace = self.dataset.reconstruct(model)[:,:,self.dataset.observed_mask]
+            trace = self.dataset.reconstruct(model, timestep=80)[:,:,self.dataset.observed_mask]
             trace = trace.detach().cpu().numpy()
-            color_list = ["green", "red"]
-            num_neuron = 6
-            t_steps = 80
-            time = np.arange(0, t_steps)
-            _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
-            for neuron_index in range(num_neuron):
-                ax = axes[neuron_index // 2, neuron_index % 2]
-                ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
-                ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
-                ax.legend(["true", "generated"])
-            savefig(path='./image/celegans', filename=f"celegans_trace_trial.png")
+            bin_edges = np.linspace(-3, 3, 100)
+            eps = 0.00001 # to avoid KL divergence from blowing up
+            # distance_type = "KL"
+            distance_type = "Wasserstein"
+            n_observed = np.sum(self.dataset.observed_mask).item()
+            if distance_type == "KL":
+                recovered_distributions = self.get_batch_distribution(trace, bin_edges)
+                test_distributions = self.get_batch_distribution(activity[:40,...], bin_edges) 
+                baseline_distributions = self.get_batch_distribution(activity[:80,...], bin_edges)+eps
+                KL_divergence = np.zeros((2, n_observed))
+                for i in range(n_observed):
+                    KL_divergence[0,i] = entropy(recovered_distributions[i], baseline_distributions[i])
+                    KL_divergence[1,i] = entropy(test_distributions[i], baseline_distributions[i])
+
+                # breakpoint()
+                # plot the KL divergence distribution
+                df = pd.DataFrame(KL_divergence.T, columns=['recovered', 'baseline'])
+                df.plot(kind='box')
+                savefig(path='./image/celegans', filename=f"KL_distribution")
+            elif distance_type == "Wasserstein":
+                w_dist = np.zeros((2, n_observed))
+                for i in range(n_observed):
+                    w_dist[0,i] = wasserstein_distance(trace[:, :, i].flatten(), activity[:80, :, i].flatten())
+                    w_dist[1,i] = wasserstein_distance(activity[:80, :, i].flatten(), activity[:40, :, i].flatten())
+                df = pd.DataFrame(w_dist.T, columns=['recovered', 'baseline'])
+                df.plot(kind='box')
+                savefig(path='./image/celegans', filename=f"Wasserstein_distribution{self.args.run_id}")
+            # plot the histogram to visualize and compare the distribution
+            # print(f'the max: {np.max(trace[:60,:,:])}')
+            # breakpoint()
+            # num_neuron = 16
+            # t_steps = 80
+            # ncol = 4
+            # _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
+            # for neuron_index in range(num_neuron):
+            #     ax = axes[neuron_index // ncol, neuron_index % ncol]
+            #     ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+            #     ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+            #     ax.legend(["true", "generated"])
+            # savefig(path='./image/celegans', filename=f"celegans_trace_distribution.png")
+
             # for trial in range(21):
             #     logging.info(f"generating trial {trial}")
             #     _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
@@ -155,40 +190,20 @@ class Celegans:
             #         neuron_name = name_list[neuron_index]
             #         ax.set_title(f"neuron:{neuron_name}, corrcoef:{corrcoef}")
             #         ax.legend()
-            #     savefig(path='./image/celegans', filename=f"celegans_trace_trial{trial}.png")
+            #     savefig(path='./image/celegans', filename=f"celegans_trace_trial{trial}")
             #     plt.close()
 
     """
-        get the initial state for the hidden states
+        get the distribution of a vector of sample
     """
-
     @staticmethod
-    def get_initial_state(model: CelegansRNN, activity):
-        init_out = torch.tensor(activity[0, :, :]).to(model.W_out.weight).T
-        return torch.linalg.lstsq(model.W_out.weight, init_out).solution.T
+    def get_batch_distribution(samples, bin_edges):
+        n_neuron = samples.shape[-1]
+        distributions = np.zeros((n_neuron, len(bin_edges) - 1))
+        # Calculate the histogram with probabilities (density=True)
+        for i in range(n_neuron):
+            distributions[i], _ = np.histogram(samples[...,i], bins=bin_edges, density=True)
 
-    @staticmethod
-    def gen_trace(
-        model: CelegansRNN,
-        initial_state,
-        length,
-        dataset: CelegansData,
-        annealing_step=1,
-    ):
-        odor = torch.tensor(dataset.odor_worms).to(initial_state)
-        activity = dataset.activity_worms
-        init_out = torch.tensor(activity[0, :, :]).to(model.W_out.weight)
-        with torch.no_grad():
-            ntrial = initial_state.shape[0]
-            hidden_list = torch.zeros(length, ntrial, model.hid_dim)
-            trace = torch.zeros(length, ntrial, model.out_dim)
-            hidden_list[0] = initial_state
-            trace[0] = init_out
-            next = initial_state
-            for i in range(1, length * annealing_step):
-                idx = i // annealing_step
-                next = model(next, odor[idx, :, :])
-                if i % annealing_step == 0:
-                    hidden_list[idx] = next
-                    trace[idx] = model.W_out(next) + model.true_input(odor[idx, :, :])
-            return hidden_list, trace
+        return distributions*(bin_edges[1]-bin_edges[0])
+
+

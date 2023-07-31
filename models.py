@@ -137,8 +137,8 @@ class rand_RNN(torch.nn.Module):
         # self.non_lin = torch.nn.Tanh()
         self.dt = dt
 
-    def forward(self, hidden, input=None):
-        v = self.cal_v(hidden, input)
+    def forward(self, hidden):
+        v = self.cal_v(hidden)
         nbatch = hidden.shape[0]
         return (
             hidden
@@ -235,8 +235,8 @@ class CelegansRNN(torch.nn.Module):
             + sample @ W_elec - sample * torch.sum(W_elec, dim=1) # electric synapse input
             + self.v_rest
         )
-        sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)  
-        _score[:, self.sensory_mask] += sensory_input
+        # sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)  
+        # _score[:, self.sensory_mask] += sensory_input
         return (_score * self.gamma)@ self.sig.T @ self.sig
 
     def init_weights(self):
