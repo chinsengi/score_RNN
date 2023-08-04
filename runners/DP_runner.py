@@ -21,14 +21,16 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
+        self.data_mean = torch.tensor([4., 5.]).reshape([2, 1])
+        self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
         # torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim
         training_batch_size = 128
 
-        GMM_mean = torch.tensor([-1., 1.], device=self.device).reshape([2, 1])
-        GMM_std = torch.tensor([.5]).unsqueeze(0).repeat(2, 1).to(GMM_mean)
+        GMM_mean = self.data_mean.to(self.device)
+        GMM_std = self.data_std.to(self.device)
         data = GMMData(GMM_mean, GMM_std, n=10000)
         train_loader = torch.utils.data.DataLoader(data, batch_size= training_batch_size)
 
@@ -86,7 +88,7 @@ class DP():
                 model.set_weight()
                 tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(np.arange(-5,5,.1), tmp, color=colors[i-1])
-            true_score = score_GMM_1D(torch.arange(-5, 5,.1), torch.tensor([-1,1]), torch.tensor([0.5**2, 0.5**2]))
+            true_score = score_GMM_1D(torch.arange(-5, 5,.1), self.data_mean, self.data_std**2)
             plt.plot(np.arange(-5, 5, .1), true_score, color="orange", label="true score")
             plt.legend()
             sm = ScalarMappable(norm=norm, cmap="Blues_r")

@@ -15,10 +15,10 @@
 TEST_ONLY=false
 # TEST_ONLY=true
 RUN="DP"
-RUN="MNIST"
+# RUN="MNIST"
 # Your programs to run.
 
-declare -a run_ids=("4" "5" "6")
+RUNID=7
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")
@@ -35,17 +35,20 @@ fi
 
 if [ "$TEST_ONLY" = true ]; then
     echo "TEST_ONLY"
-    for i in ${!run_ids[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+    for i in ${!models[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+        ((RUNID++))
     done
+
 else
     echo "TRAINING AND TESTING"
-    for i in ${!run_ids[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} &
+    for i in ${!models[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} &
     done
     wait
-    for i in ${!run_ids[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id ${run_ids[$i]} --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+    RUNID=$((RUNID-${#models[@]}))
+    for i in ${!models[@]}; do
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
     done
 fi
 # wait for all programs to finish
