@@ -22,8 +22,10 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        self.data_mean = torch.tensor([4., 5.]).reshape([2, 1])
-        self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
+        # self.data_mean = torch.tensor([4., 5.]).reshape([2, 1])
+        # self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
+        self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
+        self.data_std = torch.tensor([.5, .5]).reshape([2, 1])
         # torch.set_float32_matmul_precision('high')
 
     def train(self):
@@ -43,7 +45,7 @@ class DP():
 
         # annealing noise
         n_level = self.args.noise_level
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
 
         nepoch = self.args.nepochs
         model.train()
@@ -77,14 +79,14 @@ class DP():
             samples = (torch.rand([nsample, out_dim])*4-2).to(self.device)
         
         n_level = self.args.noise_level
-        noise_levels = [1/math.exp(math.log(100)*n/n_level) for n in range(n_level)]
+        noise_levels = [1/math.exp(math.log(1000)*n/n_level) for n in range(n_level)]
         norm = LogNorm(vmin=min(noise_levels), vmax=max(noise_levels))
         colors = create_color_gradient(noise_levels, norm)
 
         model = self.set_model()
         with torch.no_grad():
             # plot score function during training
-            x_range = torch.arange(0, 10, .1)
+            x_range = torch.arange(-5, 5, .1)
             for i in range(1,n_level+1):
                 load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{i*(self.args.nepochs//self.args.noise_level)}.pth", model)
                 model.set_weight()

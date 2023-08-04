@@ -4,8 +4,8 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sc256@uw.edu
 #SBATCH --account=amath
-# SBATCH --partition=gpu-rtx6k 
-#SBATCH --partition=ckpt
+#SBATCH --partition=gpu-rtx6k 
+# SBATCH --partition=ckpt
 #SBATCH --nodes=3
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
@@ -18,7 +18,7 @@ RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
 
-RUNID=7
+RUNID=4
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")
@@ -36,7 +36,7 @@ fi
 if [ "$TEST_ONLY" = true ]; then
     echo "TEST_ONLY"
     for i in ${!models[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --run_id $RUNID --test &
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --test &
         ((RUNID++))
     done
 
@@ -49,7 +49,7 @@ else
     wait
     RUNID=$((RUNID-${#models[@]}))
     for i in ${!models[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --run_id $RUNID --test &
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --test &
         ((RUNID++))
     done
 fi

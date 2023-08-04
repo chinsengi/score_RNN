@@ -74,8 +74,8 @@ def main():
         set_seed(args.seed)
 
     try:
-        runner = eval(args.runner)(args)
         if not args.test:
+            runner = eval(args.runner)(args)
             # print out the runner file   
             with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
                 logging.info(f.read())
@@ -88,6 +88,8 @@ def main():
             # make sure that the config matches
             with open(f"run/{args.runner}/logs/{args.run_id}/config.yaml") as f:
                 args = yaml.load(f, Loader=yaml.FullLoader)
+                args = argparse.Namespace(**args)
+            runner = eval(args.runner)(args)
             args.test = True
             runner.test()
     except:
