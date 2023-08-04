@@ -142,8 +142,8 @@ class MNIST():
             if self.args.model=="SO_FR" or self.args.model=="SO_SC":
                 samples = (torch.randn([100, self.out_dim])).to(self.device)/1000
             elif self.args.model == "SR":
-                # samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
-                samples = (torch.rand([100, self.hid_dim])-.5).to(self.device)/1000
+                samples = (torch.randn([100, self.hid_dim])).to(self.device)/1000
+                # samples = (torch.rand([100, self.hid_dim])-.5).to(self.device)/1000
                 # samples = (torch.zeros([100, self.hid_dim])).to(self.device)/1000
 
                 # wout_pinv = torch.pinverse(model.W_out.weight)

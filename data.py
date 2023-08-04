@@ -243,8 +243,8 @@ class CelegansData(Dataset):
                     reconst[t-1, trial, :].unsqueeze(0).to(self.device),
                     self.odor_worms[t-1, trial, :].unsqueeze(0).to(self.device),
                 ).squeeze(0).detach()
-                idx = torch.abs(reconst[t, trial, :])>3
-                reconst[t, trial, idx] = 0
+                # idx = torch.abs(reconst[t, trial, :])>3
+                # reconst[t, trial, idx] = 0
         return reconst
 
     def __len__(self):

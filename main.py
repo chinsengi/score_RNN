@@ -86,6 +86,10 @@ def main():
                 yaml.dump(vars(args), f)
             runner.train()
         else:
+            # make sure that the config matches
+            with open(f"run/{args.runner}/logs/{args.run_id}/config.yaml") as f:
+                args = yaml.load(f, Loader=yaml.FullLoader)
+            # breakpoint()
             runner.test()
     except:
         logging.error(traceback.format_exc())
