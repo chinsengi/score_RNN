@@ -69,9 +69,6 @@ def main():
     logging.info(f"Exp instance id = {os.getpid()}")
     logging.info(f"Exp comment = {args.comment}")
 
-    # save the config file
-    logging.info(json.dumps(vars(args), indent=2))
-
     # set random seed
     if args.seed != 0:
         set_seed(args.seed)
@@ -82,14 +79,16 @@ def main():
             # print out the runner file   
             with open(os.path.join('runners', args.runner+'_runner.py'), 'r') as f:
                 logging.info(f.read())
+            # save the config file
             with open(os.path.join(args.log, 'config.yaml'), 'w') as f:
                 yaml.dump(vars(args), f)
+            logging.info(json.dumps(vars(args), indent=2))
             runner.train()
         else:
             # make sure that the config matches
             with open(f"run/{args.runner}/logs/{args.run_id}/config.yaml") as f:
                 args = yaml.load(f, Loader=yaml.FullLoader)
-            # breakpoint()
+            args.test = True
             runner.test()
     except:
         logging.error(traceback.format_exc())
