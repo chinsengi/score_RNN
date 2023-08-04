@@ -12,6 +12,7 @@ import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize, LogNorm
 import scienceplots
+import torch.nn as nn
 
 # plt.style.use('science')
 __all__ = ['DP']
@@ -83,13 +84,14 @@ class DP():
         model = self.set_model()
         with torch.no_grad():
             # plot score function during training
+            x_range = torch.arange(0, 10, .1)
             for i in range(1,n_level+1):
                 load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{i*(self.args.nepochs//self.args.noise_level)}.pth", model)
                 model.set_weight()
-                tmp = model.score(torch.arange(-5, 5, .1).to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
-                plt.plot(np.arange(-5,5,.1), tmp, color=colors[i-1])
-            true_score = score_GMM_1D(torch.arange(-5, 5,.1), self.data_mean, self.data_std**2)
-            plt.plot(np.arange(-5, 5, .1), true_score, color="orange", label="true score")
+                tmp = model.score(x_range.to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
+                plt.plot(x_range, tmp, color=colors[i-1])
+            true_score = score_GMM_1D(x_range, self.data_mean, self.data_std**2)
+            plt.plot(x_range, true_score, color="orange", label="true score")
             plt.legend()
             sm = ScalarMappable(norm=norm, cmap="Blues_r")
             sm.set_array([])
@@ -106,22 +108,30 @@ class DP():
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
             logging.info(samples.shape)
-            bin_edges = np.arange(-3, 3, 0.1)
+            bin_edges = x_range.numpy()
             _, bins, _ = plt.hist(samples, bins=bin_edges, label=  "sampled points")
-            plt.plot(np.arange(-3,3,.1), mixture_pdf(torch.arange(-3,3,.1), torch.tensor([-1,1]), torch.tensor([0.5**2,0.5**2]))*nsample*(bins[2]-bins[1]), label="Scaled density function", color="orange")
+            plt.plot(x_range, mixture_pdf(x_range, self.data_mean, self.data_std**2)*nsample*(bins[2]-bins[1]), label="Scaled density function", color="orange")
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             savefig(path="./image/DP", filename=self.args.model+"_DP_sampled")
 
     def set_model(self):
+        # choosing the nonlinearity
+        if self.args.nonlin == "tanh":
+            nonlin = nn.Tanh()
+        elif self.args.nonlin == "relu":
+            nonlin = nn.ReLU()
+        else:
+            nonlin = nn.Softplus()
+
         if self.args.model == "SR":
             print("Using reservoir-sampler arch")
-            model = rand_RNN(self.args.hid_dim, 1)
+            model = rand_RNN(self.args.hid_dim, 1, non_lin=nonlin)
         elif self.args.model == "SO_SC":
             print("Using sampler-only arch with synaptic current dynamics")
-            model = NeuralDyn(1)
+            model = NeuralDyn(1, non_lin=nonlin)
         elif self.args.model == "SO_FR":
             print("Using sampler-only arch with firing rate dynamics")
-            model = NeuralDyn(1, synap=False)
+            model = NeuralDyn(1, synap=False, non_lin=nonlin)
         else:
             return None
 

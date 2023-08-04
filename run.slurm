@@ -4,8 +4,8 @@
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sc256@uw.edu
 #SBATCH --account=amath
-# SBATCH --partition=gpu-rtx6k 
-#SBATCH --partition=ckpt
+#SBATCH --partition=gpu-rtx6k 
+# SBATCH --partition=ckpt
 #SBATCH --nodes=3
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
@@ -13,12 +13,12 @@
 #SBATCH --chdir=.
 #SBATCH --output=./slurm_out/slurm-%j.out
 TEST_ONLY=false
-# TEST_ONLY=true
+TEST_ONLY=true
 RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
 
-RUNID=7
+RUNID=4
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")
@@ -43,12 +43,14 @@ if [ "$TEST_ONLY" = true ]; then
 else
     echo "TRAINING AND TESTING"
     for i in ${!models[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} &
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --non_lin tanh &
+        ((RUNID++))
     done
     wait
     RUNID=$((RUNID-${#models[@]}))
     for i in ${!models[@]}; do
         srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --test &
+        ((RUNID++))
     done
 fi
 # wait for all programs to finish
