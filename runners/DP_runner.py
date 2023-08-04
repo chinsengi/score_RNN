@@ -36,7 +36,7 @@ class DP():
         train_loader = torch.utils.data.DataLoader(data, batch_size= training_batch_size)
 
         # choosing the model
-        print("model used is :"+ self.args.model)
+        logging.info("model used is :"+ self.args.model)
         model = self.set_model()
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=.001, amsgrad=True)
         # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, amsgrad=True)

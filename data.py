@@ -45,7 +45,6 @@ class GMMData(Dataset):
     def __init__(self, GMMmean, GMMstd, n=1000):
         super().__init__()
         self.n_comp = GMMmean.shape[0]
-        self.n_feature = GMMmean.shape[1]
         self.GMMmean = GMMmean
         self.GMMstd = GMMstd
         self.n = n
