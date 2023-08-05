@@ -18,7 +18,7 @@ RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
 
-RUNID=4
+RUNID=3
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")

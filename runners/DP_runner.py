@@ -22,17 +22,17 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        self.data_mean = torch.tensor([3., 5.]).reshape([2, 1])
+        self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
         self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
         # self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
         # self.data_std = torch.tensor([.5, .5]).reshape([2, 1])
         self.noise_start = 1
-        self.noise_end = 1/100
+        self.noise_end = 1/50
         # torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim
-        training_batch_size = 128
+        training_batch_size = 32
 
         GMM_mean = self.data_mean.to(self.device)
         GMM_std = self.data_std.to(self.device)
