@@ -25,7 +25,7 @@ declare -a models=("SR" "SO_SC" "SO_FR")
 
 if [ "$RUN" = "DP" ]; then
     echo "DP experiment"
-    hid_dim=500
+    hid_dim=1000
     nepochs=1000
 elif [ "$RUN" = "MNIST" ]; then
     echo "MNIST experiment"
