@@ -36,6 +36,7 @@ def parse_args_and_config():
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--disable_impute', action='store_true', help='specify whether to impute missing data')
     parser.add_argument('--impute_freq', type=int, default=20, help='the frequency of imputing missing data')
+    parser.add_argument('--fast_sampling', action='store_true', help='whether to include a nonzero DF field to accelerate sampling')
     args = parser.parse_args()
     args.log = os.path.join(args.run, args.runner, 'logs', args.run_id)
     args.device = use_gpu()

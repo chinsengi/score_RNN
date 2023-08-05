@@ -122,7 +122,7 @@ class NeuralDyn(torch.nn.Module):
 
 
 class rand_RNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, dt=0.001, non_lin=nn.ReLU()):
+    def __init__(self, hid_dim, out_dim, dt=0.001, non_lin=nn.ReLU(), fast_sampling=False):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
@@ -131,11 +131,13 @@ class rand_RNN(torch.nn.Module):
         self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
+        self.J = Parameter(torch.randn(out_dim, out_dim, requires_grad=True))
         self.is_set_weight = False
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
         # self.non_lin = torch.nn.Tanh()
         self.dt = dt
+        self.fast_sampling = fast_sampling
 
     def forward(self, hidden):
         v = self.cal_v(hidden)
@@ -165,8 +167,16 @@ class rand_RNN(torch.nn.Module):
     # calculate the dynamics (score function) of the output
     def score(self, sample):
         internal_score = -sample + self.W1(self.non_lin(self.W2(sample)))
+        if self.fast_sampling:
+            skew_symmetric = self.get_skew_symmetric()
+            internal_score = internal_score @ (torch.eye(self.out_dim) - skew_symmetric)
         return internal_score
 
+    def get_skew_symmetric(self):
+        skew_symmetric = self.J - self.J.T
+        skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
+        return skew_symmetric
+    
     def init_weights(self, m):
         if isinstance(m, nn.Linear):
             init.xavier_uniform_(m.weight)
