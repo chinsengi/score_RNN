@@ -40,6 +40,10 @@ def savefig(path='./image', filename='image', format='png'):
     current_time = time.strftime("%H:%M:%S", t)
     plt.savefig(os.path.join(path, current_time + filename+'.'+format), dpi=300, format=format)
     
+def savenpy(path='./image', filename='image', data=None):
+    create_dir(path)
+    np.save(os.path.join(path, filename+'.npy'), data)
+
 # create directory
 def create_dir(path='./model'):
     isExist = os.path.exists(path)
@@ -223,14 +227,17 @@ def train_MNIST(model, loader, device):
 '''
 Get the trajectory of the hidden states
 '''
-def gen_traj(model, initial_state, length):
+def gen_traj(model, initial_state, length, freq=.1):
     nbatch = initial_state.shape[0]
-    hidden_list = torch.zeros(length, nbatch, model.hid_dim)
+    dt = model.dt
+    interval = int(freq//dt)
+    hidden_list = torch.zeros(int(length//interval), nbatch, model.hid_dim).to(initial_state)
     hidden_list[0] = initial_state
     next = initial_state
-    for i in range(1, length):
+    for i in tqdm(range(1,length)):
         next = model(next)
-        hidden_list[i] = next
+        if (i+1) % interval == 0:
+            hidden_list[int((i+1)//interval)-1] = next
     return hidden_list
 
 '''
@@ -242,7 +249,7 @@ param:
 def gen_sample(model, initial_state, length):
     assert(model.is_set_weight)
     next = initial_state
-    for i in tqdm(range(length)):
+    for _ in tqdm(range(length)):
         # next = next + model.dt*model.score(next) + math.sqrt(2*model.dt)*torch.randn_like(next)
         next = model(next)
     return next

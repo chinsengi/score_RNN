@@ -131,7 +131,7 @@ class rand_RNN(torch.nn.Module):
         self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
-        self.J = Parameter(torch.randn(out_dim, out_dim, requires_grad=True))
+        self.J = Parameter(torch.zeros(out_dim, out_dim, requires_grad=True))
         self.is_set_weight = False
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
@@ -169,12 +169,13 @@ class rand_RNN(torch.nn.Module):
         internal_score = -sample + self.W1(self.non_lin(self.W2(sample)))
         if self.fast_sampling:
             skew_symmetric = self.get_skew_symmetric()
-            internal_score = internal_score @ (torch.eye(self.out_dim) - skew_symmetric)
+            lam = skew_symmetric[0,1].detach()
+            internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)/(1+lam**2)
         return internal_score
 
     def get_skew_symmetric(self):
         skew_symmetric = self.J - self.J.T
-        skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
+        # skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
         return skew_symmetric
     
     def init_weights(self, m):
