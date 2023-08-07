@@ -131,7 +131,7 @@ class rand_RNN(torch.nn.Module):
         self.W_out = nn.Linear(hid_dim, out_dim, bias=False)
         self.W1 = nn.Linear(hid_dim, out_dim, bias=False)
         self.W2 = nn.Linear(out_dim, hid_dim, bias=True)
-        self.J = Parameter(torch.zeros(out_dim, out_dim, requires_grad=True))
+        self.J = Parameter(torch.randn(out_dim, out_dim, requires_grad=True))
         self.is_set_weight = False
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
