@@ -134,7 +134,7 @@ class LAP:
             )
             model.set_weight()
             model.dt = 1e-4
-            samples = gen_sample(model, initial_states, 20000)
+            samples = gen_sample(model, initial_states, 20)
             samples = model.W_out(samples)
             samples = samples.detach().cpu().numpy()
             logging.info(samples.shape)
@@ -203,7 +203,11 @@ class LAP:
             )
 
             # calculate the wassertein distance between true distribution and learned distribution at different time steps
-            traj = gen_traj(model, initial_states, 20000)
+            # initial_states = (torch.zeros([nsample, hid_dim])).to(self.device)
+            initial_states = (torch.rand([nsample, out_dim])*3.5).to(self.device).T
+            # breakpoint()
+            initial_states = torch.linalg.lstsq(model.W_out.weight, initial_states)[0].T
+            traj = gen_traj(model, initial_states, 20000, freq=.01)
             traj = model.W_out(traj)
             traj = traj.detach().cpu().numpy()
             logging.info(traj.shape)

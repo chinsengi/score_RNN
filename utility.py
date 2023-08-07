@@ -37,12 +37,14 @@ def save(model, optimizer, path, filename):
 def savefig(path='./image', filename='image', format='png'):
     create_dir(path)
     t = time.localtime()
-    current_time = time.strftime("%H:%M:%S", t)
-    plt.savefig(os.path.join(path, current_time + filename+'.'+format), dpi=300, format=format)
+    current_time = time.strftime("%H_%M_%S_", t)
+    plt.savefig(os.path.join(path, current_time + filename + '.' + format), dpi=300, format=format)
     
-def savenpy(path='./image', filename='image', data=None):
+def savenpy(path='./image', filename='image', data=None, mark_time=False):
     create_dir(path)
-    np.save(os.path.join(path, filename+'.npy'), data)
+    t = time.localtime()
+    current_time = time.strftime("%H_%M_%S_", t) if mark_time else ''
+    np.save(os.path.join(path, current_time + filename), data)
 
 # create directory
 def create_dir(path='./model'):
@@ -231,13 +233,13 @@ def gen_traj(model, initial_state, length, freq=.1):
     nbatch = initial_state.shape[0]
     dt = model.dt
     interval = int(freq//dt)
-    hidden_list = torch.zeros(int(length//interval), nbatch, model.hid_dim).to(initial_state)
+    hidden_list = torch.zeros(int(length//interval+1), nbatch, model.hid_dim).to(initial_state)
     hidden_list[0] = initial_state
     next = initial_state
     for i in tqdm(range(1,length)):
         next = model(next)
         if (i+1) % interval == 0:
-            hidden_list[int((i+1)//interval)-1] = next
+            hidden_list[int((i+1)//interval)] = next
     return hidden_list
 
 '''

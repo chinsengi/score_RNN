@@ -169,13 +169,14 @@ class rand_RNN(torch.nn.Module):
         internal_score = -sample + self.W1(self.non_lin(self.W2(sample)))
         if self.fast_sampling:
             skew_symmetric = self.get_skew_symmetric()
-            lam = skew_symmetric[0,1].detach()
-            internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)/(1+lam**2)
+            # lam = skew_symmetric[0,1].detach()
+            # internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)/(1+lam**2)
+            internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)
         return internal_score
 
     def get_skew_symmetric(self):
         skew_symmetric = self.J - self.J.T
-        # skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
+        skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
         return skew_symmetric
     
     def init_weights(self, m):
