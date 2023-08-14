@@ -6,6 +6,7 @@ import numpy as np
 import scipy.io as sio
 from torch.distributions import MultivariateNormal, MixtureSameFamily
 from torch.distributions.laplace import Laplace
+import torch.nn.functional as F
 from mv_laplace import MvLaplaceSampler
 from connectome_preprocess import WhiteConnectomeData
 
@@ -166,6 +167,7 @@ class CelegansData(Dataset):
         self.activity_worms = torch.tensor(
             np.moveaxis(activity_worms[:, :, :774], [0, 1, 2], [1, 2, 0])
         ).float()  # [time, trial, neuron]
+        self.activity_worms = F.normalize(self.activity_worms, dim=2)
         self.odor_worms = torch.tensor(
             np.moveaxis(odor_worms[:, :, :774], [0, 1, 2], [1, 2, 0])
         ).float()  # [time, trial, odor]
@@ -242,8 +244,8 @@ class CelegansData(Dataset):
                     reconst[t-1, trial, :].unsqueeze(0).to(self.device),
                     self.odor_worms[t-1, trial, :].unsqueeze(0).to(self.device),
                 ).squeeze(0).detach()
-                # idx = torch.abs(reconst[t, trial, :])>3
-                # reconst[t, trial, idx] = 0
+                idx = torch.abs(reconst[t, trial, :])>3
+                reconst[t, trial, idx] = 0
         return reconst
 
     def __len__(self):

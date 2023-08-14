@@ -30,7 +30,7 @@ class Celegans:
         # set up dataloader
         self.dataset = CelegansData(self.connectome, self.device)
 
-        self.non_lin = nn.Tanh() if args.nonlin == "tanh" else nn.Softplus()
+        self.non_lin = set_nonlin(args.nonlin)
 
     def train(self):
         # set up tensorboard logging
@@ -77,7 +77,7 @@ class Celegans:
                 save(
                     model,
                     optimizer,
-                    f"./model/{self.args.run_id}",
+                    f"./model/Celegans/{self.args.run_id}",
                     f"{model.__class__.__name__}_celegans_ep{epoch}",
                 )
 
@@ -93,7 +93,7 @@ class Celegans:
                 # backpropagation
                 optimizer.zero_grad()
                 loss.backward()
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
@@ -153,16 +153,16 @@ class Celegans:
             # plot the histogram to visualize and compare the distribution
             # print(f'the max: {np.max(trace[:60,:,:])}')
             # breakpoint()
-            # num_neuron = 16
-            # t_steps = 80
-            # ncol = 4
-            # _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
-            # for neuron_index in range(num_neuron):
-            #     ax = axes[neuron_index // ncol, neuron_index % ncol]
-            #     ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
-            #     ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
-            #     ax.legend(["true", "generated"])
-            # savefig(path='./image/celegans', filename=f"celegans_trace_distribution.png")
+            num_neuron = 16
+            t_steps = 80
+            ncol = 4
+            _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
+            for neuron_index in range(num_neuron):
+                ax = axes[neuron_index // ncol, neuron_index % ncol]
+                ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+                ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+                ax.legend(["true", "generated"])
+            savefig(path='./image/celegans', filename=f"celegans_trace_distribution_{self.args.run_id}")
 
             # for trial in range(21):
             #     logging.info(f"generating trial {trial}")

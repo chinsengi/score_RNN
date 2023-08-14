@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 import random
+import torch.nn as nn
 
 def use_gpu(gpu_id: int=0):
     num_of_gpus = torch.cuda.device_count()
@@ -307,3 +308,15 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
     np.random.seed(seed)
     random.seed(seed)
+
+def set_nonlin(non_lin):
+    if non_lin == 'tanh':
+        return nn.Tanh()
+    elif non_lin == 'softplus':
+        return nn.Softplus()
+    elif non_lin == 'relu':
+        return nn.ReLU()
+    elif non_lin == 'sigmoid':
+        return nn.Sigmoid()
+    else:
+        raise NotImplementedError
