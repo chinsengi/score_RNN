@@ -18,7 +18,7 @@ RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
 
-RUNID=3
+RUNID=6
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")
@@ -43,7 +43,7 @@ if [ "$TEST_ONLY" = true ]; then
 else
     echo "TRAINING AND TESTING"
     for i in ${!models[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --nonlin tanh &
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --nonlin tanh&
         ((RUNID++))
     done
     wait

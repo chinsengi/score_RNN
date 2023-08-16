@@ -16,10 +16,10 @@
 
 # TEST_ONLY=true
 RUN="Celegans"
-RUN_ID="1"
-N_EPOCHS="10000"
+RUN_ID="2"
+N_EPOCHS="50000"
 # Your programs to run.
-python main.py --runner $RUN --run_id $RUN_ID --nepochs $N_EPOCHS --nonlin tanh --disable_impute
+python main.py --runner $RUN --run_id $RUN_ID --nepochs $N_EPOCHS --nonlin relu --disable_impute
 python main.py --runner $RUN --run_id $RUN_ID --test 
 # wait for all programs to finish
 wait

@@ -107,8 +107,9 @@ class DP():
             
             # get samples
             load(f"./model/DP/{self.args.run_id}/{self.args.model}_chkpt{self.args.run_id}.pth", model)
+            # load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{self.args.nepochs}.pth", model)
             model.set_weight()
-            model.dt = 1e-4
+            model.dt = 1e-5
             samples = gen_sample(model, samples, 10000)
             plt.figure()
             samples = model.W_out(samples)
@@ -118,7 +119,7 @@ class DP():
             _, bins, _ = plt.hist(samples, bins=bin_edges, label=  "sampled points")
             plt.plot(x_range, mixture_pdf(x_range, self.data_mean, self.data_std**2)*nsample*(bins[2]-bins[1]), label="Scaled density function", color="orange")
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            savefig(path="./image/DP", filename=self.args.model+"_DP_sampled")
+            savefig(path="./image/DP", filename=self.args.model+f"_{self.args.run_id}_DP_sampled")
 
     def set_model(self):
         # choosing the nonlinearity

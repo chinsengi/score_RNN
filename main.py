@@ -32,7 +32,7 @@ def parse_args_and_config():
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")
-    parser.add_argument("--nonlin", type=str, default="tanh", help="nonlinearity used")
+    parser.add_argument("--nonlin", type=str, default="relu", help="nonlinearity used")
     parser.add_argument('--test', action='store_true', help='specify to enable testing')
     parser.add_argument('--disable_impute', action='store_true', help='specify whether to impute missing data')
     parser.add_argument('--impute_freq', type=int, default=20, help='the frequency of imputing missing data')

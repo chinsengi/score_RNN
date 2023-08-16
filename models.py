@@ -169,7 +169,9 @@ class rand_RNN(torch.nn.Module):
         internal_score = -sample + self.W1(self.non_lin(self.W2(sample)))
         if self.fast_sampling:
             skew_symmetric = self.get_skew_symmetric()
-            internal_score = internal_score @ (torch.eye(self.out_dim) - skew_symmetric)
+            # lam = skew_symmetric[0,1].detach()
+            # internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)/(1+lam**2)
+            internal_score = internal_score @ torch.linalg.solve(torch.eye(self.out_dim).to(sample) - skew_symmetric)
         return internal_score
 
     def get_skew_symmetric(self):
@@ -194,6 +196,7 @@ class CelegansRNN(torch.nn.Module):
         self.sig = Parameter(torch.eye(self.hid_dim, requires_grad=True))
         self.W_chem = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
         self.E = nn.Linear(self.hid_dim, self.hid_dim, bias=False)
+        self.J = Parameter(torch.zeros(self.hid_dim, self.hid_dim, requires_grad=True))
         self.connectome = connectome
         self.non_lin = non_lin
         # self.non_lin = nn.LeakyReLU(0.1)
@@ -213,16 +216,16 @@ class CelegansRNN(torch.nn.Module):
         self.init_weights()
 
     def forward(self, hidden, input):
-        v = self.score(hidden, input)
+        F = self.cal_F(hidden, input)
         nbatch = hidden.shape[0]
         return (
             hidden
-            + self.dt * v
+            + self.dt * F
             + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))@self.sig.T
         )
 
     """
-    calculate the dynamics (score function) of the output
+    calculate the dynamics (score function) 
 
     Args:
         sample: hidden state
@@ -232,6 +235,21 @@ class CelegansRNN(torch.nn.Module):
     """
 
     def score(self, sample, input, mask=False, sym_elec=False):
+        _F = self.cal_F(sample, input, mask, sym_elec)
+        # sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)  
+        # _score[:, self.sensory_mask] += sensory_input
+        return torch.linalg.solve(self.sig @ self.sig.T + self.get_skew_symmetric(), _F, left=False)
+    
+    '''
+    calculate the drift term 
+
+    Args:
+        sample: hidden state
+        input: sensory input
+        mask: whether to mask the weight (enforce sparsity)
+        sym_elec: whether to symmetrize the electric synapse
+    '''
+    def cal_F(self, sample, input, mask=False, sym_elec=False):
         if mask:
             self.mask_weight()
         if sym_elec:
@@ -239,16 +257,14 @@ class CelegansRNN(torch.nn.Module):
         else:
             W_elec = self.W_elec
         trans_input = self.W_chem(self.non_lin(sample))
-        _score = (
+        _F = (
             -sample
             + self.E(trans_input) - sample * trans_input # chemical synapse input
             + sample @ W_elec - sample * torch.sum(W_elec, dim=1) # electric synapse input
             + self.v_rest
-        )
-        # sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)  
-        # _score[:, self.sensory_mask] += sensory_input
-        return (_score * self.gamma)@ self.sig.T @ self.sig
-
+        ) * self.gamma
+        return _F
+    
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -261,7 +277,12 @@ class CelegansRNN(torch.nn.Module):
         # W_c = torch.mul(self.sparsity_c, self.magnitudes_c * self.magnitude_scaling_factor_chem)
         # W_e = torch.mul(self.sparsity_e, (self.magnitudes_e + self.magnitudes_e.transpose(0,1)) * self.magnitude_scaling_factor_elec)
 
-    # create a symmetric matrix out of X
+    # create a skew-symmetric matrix out of J
+    def get_skew_symmetric(self):
+        skew_symmetric = self.J - self.J.T
+        # skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
+        return skew_symmetric
+    
     @staticmethod
     def symmetric(X):
         return X.triu() + X.triu(1).transpose(-1, -2)
