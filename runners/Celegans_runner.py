@@ -110,7 +110,7 @@ class Celegans:
         )
 
     def test(self):
-        # set up dataloader
+        # retrieve the data
         activity = self.dataset.activity_worms
         name_list = self.dataset.name_list
 
@@ -121,7 +121,7 @@ class Celegans:
             model,
         )
         with torch.no_grad():
-            trace = self.dataset.reconstruct(model, timestep=80)[:,:,self.dataset.observed_mask]
+            trace = self.dataset.reconstruct(model, timestep=80, dt=1e-3)[:,:,self.dataset.observed_mask]
             trace = trace.detach().cpu().numpy()
             bin_edges = np.linspace(-3, 3, 100)
             eps = 0.00001 # to avoid KL divergence from blowing up
@@ -131,7 +131,7 @@ class Celegans:
             if distance_type == "KL":
                 recovered_distributions = self.get_batch_distribution(trace, bin_edges)
                 test_distributions = self.get_batch_distribution(activity[:40,...], bin_edges) 
-                baseline_distributions = self.get_batch_distribution(activity[:80,...], bin_edges)+eps
+                baseline_distributions = self.get_batch_distribution(activity[40:80,...], bin_edges)+eps
                 KL_divergence = np.zeros((2, n_observed))
                 for i in range(n_observed):
                     KL_divergence[0,i] = entropy(recovered_distributions[i], baseline_distributions[i])
@@ -146,7 +146,7 @@ class Celegans:
                 w_dist = np.zeros((2, n_observed))
                 for i in range(n_observed):
                     w_dist[0,i] = wasserstein_distance(trace[:, :, i].flatten(), activity[:80, :, i].flatten())
-                    w_dist[1,i] = wasserstein_distance(activity[:80, :, i].flatten(), activity[:40, :, i].flatten())
+                    w_dist[1,i] = wasserstein_distance(activity[40:80, :, i].flatten(), activity[:40, :, i].flatten())
                 df = pd.DataFrame(w_dist.T, columns=['recovered', 'baseline'])
                 df.plot(kind='box')
                 savefig(path='./image/celegans', filename=f"Wasserstein_distribution{self.args.run_id}")
@@ -159,8 +159,8 @@ class Celegans:
             _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
             for neuron_index in range(num_neuron):
                 ax = axes[neuron_index // ncol, neuron_index % ncol]
-                ax.hist(activity[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
-                ax.hist(trace[:t_steps, :, neuron_index].flatten(), bins=50, density=True, alpha=0.5)
+                ax.hist(activity[:t_steps, :, neuron_index].flatten(), density=True, alpha=0.5)
+                ax.hist(trace[:t_steps, :, neuron_index].flatten(), density=True, alpha=0.5)
                 ax.legend(["true", "generated"])
             savefig(path='./image/celegans', filename=f"celegans_trace_distribution_{self.args.run_id}")
 

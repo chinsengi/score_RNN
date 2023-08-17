@@ -232,7 +232,8 @@ class CelegansData(Dataset):
         self.activity_samples = tmp_activity.reshape(-1, self.total_neuron_cnt)
         self.odor = tmp_odor.reshape(-1, 3)
 
-    def reconstruct(self, model, warmup=5, timestep=None):
+    def reconstruct(self, model, warmup=5, timestep=None, dt=1e-3):
+        model.dt = dt
         n_trials = self.activity_worms.shape[1]
         n_timestep = self.activity_worms.shape[0] if timestep is None else timestep
         reconst = torch.zeros_like(self.all_activity[:n_timestep, :, :])
@@ -244,8 +245,8 @@ class CelegansData(Dataset):
                     reconst[t-1, trial, :].unsqueeze(0).to(self.device),
                     self.odor_worms[t-1, trial, :].unsqueeze(0).to(self.device),
                 ).squeeze(0).detach()
-                idx = torch.abs(reconst[t, trial, :])>3
-                reconst[t, trial, idx] = 0
+                # idx = torch.abs(reconst[t, trial, :])>3
+                # reconst[t, trial, idx] = 0
         return reconst
 
     def __len__(self):
