@@ -11,7 +11,7 @@ data/cifar*
 *.png
 run/
 *.out
-data/*.pkl
+data/
 
 # container
 *.cache

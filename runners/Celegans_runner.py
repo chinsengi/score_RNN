@@ -8,6 +8,7 @@ from scipy.stats import entropy, wasserstein_distance
 import seaborn as sns
 import pandas as pd
 import torch.nn as nn
+
 try:
     import tensorboardX
 except ModuleNotFoundError:
@@ -44,7 +45,9 @@ class Celegans:
         observed_mask = self.dataset.observed_mask
 
         # set up the model
-        model = CelegansRNN(self.connectome, self.dataset.odor_dim, non_lin=self.non_lin).to(self.device)
+        model = CelegansRNN(
+            self.connectome, self.dataset.odor_dim, non_lin=self.non_lin
+        ).to(self.device)
         # model = CelegansRNN(self.connectome, self.dataset.odor_dim).to(self.device)
 
         # set up dataloader
@@ -55,7 +58,7 @@ class Celegans:
         # annealing noise
         n_level = 10
         noise_levels = [
-            2 / math.exp(math.log(100) * (n+1) / n_level) for n in range(n_level)
+            2 / math.exp(math.log(100) * (n + 1) / n_level) for n in range(n_level)
         ]
 
         # train the model
@@ -98,8 +101,10 @@ class Celegans:
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
                 # logging.info("step: {}, loss: {}".format(step, loss.item()))
-            if (epoch + 1) % self.args.impute_freq == 0 and not self.args.disable_impute:
-                self.dataset.reimpute(model,80)
+            if (
+                epoch + 1
+            ) % self.args.impute_freq == 0 and not self.args.disable_impute:
+                self.dataset.reimpute(model, 80)
             logging.info(f"loss: {loss.item():>7f}, Epoch: {epoch}")
 
         save(
@@ -115,41 +120,35 @@ class Celegans:
         name_list = self.dataset.name_list
 
         # load model weights and set model
-        model = CelegansRNN(self.connectome, self.dataset.odor_dim, non_lin=self.non_lin).to(self.device)
+        model = CelegansRNN(
+            self.connectome, self.dataset.odor_dim, non_lin=self.non_lin
+        ).to(self.device)
         load(
             f"./model/Celegans/{self.args.run_id}/{model.__class__.__name__}_chkpt.pth",
             model,
         )
         with torch.no_grad():
-            trace = self.dataset.reconstruct(model, timestep=80, dt=1e-3)[:,:,self.dataset.observed_mask]
+            warmup = 0
+            timestep=10000
+            trace = self.dataset.reconstruct(
+                model, warmup=warmup, timestep=timestep, dt=1e-4
+            )[:, :, self.dataset.observed_mask]
             trace = trace.detach().cpu().numpy()
-            bin_edges = np.linspace(-3, 3, 100)
-            eps = 0.00001 # to avoid KL divergence from blowing up
-            # distance_type = "KL"
-            distance_type = "Wasserstein"
             n_observed = np.sum(self.dataset.observed_mask).item()
-            if distance_type == "KL":
-                recovered_distributions = self.get_batch_distribution(trace, bin_edges)
-                test_distributions = self.get_batch_distribution(activity[:40,...], bin_edges) 
-                baseline_distributions = self.get_batch_distribution(activity[40:80,...], bin_edges)+eps
-                KL_divergence = np.zeros((2, n_observed))
-                for i in range(n_observed):
-                    KL_divergence[0,i] = entropy(recovered_distributions[i], baseline_distributions[i])
-                    KL_divergence[1,i] = entropy(test_distributions[i], baseline_distributions[i])
-
-                # breakpoint()
-                # plot the KL divergence distribution
-                df = pd.DataFrame(KL_divergence.T, columns=['recovered', 'baseline'])
-                df.plot(kind='box')
-                savefig(path='./image/celegans', filename=f"KL_distribution")
-            elif distance_type == "Wasserstein":
-                w_dist = np.zeros((2, n_observed))
-                for i in range(n_observed):
-                    w_dist[0,i] = wasserstein_distance(trace[:, :, i].flatten(), activity[:80, :, i].flatten())
-                    w_dist[1,i] = wasserstein_distance(activity[40:80, :, i].flatten(), activity[:40, :, i].flatten())
-                df = pd.DataFrame(w_dist.T, columns=['recovered', 'baseline'])
-                df.plot(kind='box')
-                savefig(path='./image/celegans', filename=f"Wasserstein_distribution{self.args.run_id}")
+            w_dist = np.zeros((2, n_observed))
+            for i in range(n_observed):
+                w_dist[0, i] = wasserstein_distance(
+                    trace[:80, :, i].flatten(), activity[:80, :, i].flatten()
+                )
+                w_dist[1, i] = wasserstein_distance(
+                    activity[:80, :11, i].flatten(), activity[:80, 11:, i].flatten()
+                )
+            df = pd.DataFrame(w_dist.T, columns=["recovered", "baseline"])
+            df.plot(kind="box")
+            savefig(
+                path="./image/celegans",
+                filename=f"Wasserstein_distribution{self.args.run_id}",
+            )
             # plot the histogram to visualize and compare the distribution
             # print(f'the max: {np.max(trace[:60,:,:])}')
             # breakpoint()
@@ -159,11 +158,103 @@ class Celegans:
             _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
             for neuron_index in range(num_neuron):
                 ax = axes[neuron_index // ncol, neuron_index % ncol]
-                ax.hist(activity[:t_steps, :, neuron_index].flatten(), density=True, alpha=0.5)
-                ax.hist(trace[:t_steps, :, neuron_index].flatten(), density=True, alpha=0.5)
-                ax.legend(["true", "generated"])
-            savefig(path='./image/celegans', filename=f"celegans_trace_distribution_{self.args.run_id}")
+                true_data_1 = activity[:t_steps, :11, neuron_index].flatten()
+                true_data_2 = activity[:t_steps, 11:, neuron_index].flatten()
+                gen_data = trace[(timestep-80):timestep, :, neuron_index].flatten()
+                ax.hist(
+                    true_data_1,
+                    density=True,
+                    alpha=0.5,
+                    bins=np.linspace(min(true_data_1), max(true_data_1), 20),
+                )
+                ax.hist(
+                    gen_data,
+                    density=True,
+                    alpha=0.5,
+                    bins=np.linspace(min(true_data_1), max(true_data_1), 20),
+                )
+                ax.hist(
+                    true_data_2,
+                    density=True,
+                    alpha=0.5,
+                    bins=np.linspace(min(true_data_1), max(true_data_1), 20),
+                )
+                ax.legend(["true_1-11", "generated", "true_trial12-21"])
+            savefig(
+                path="./image/celegans",
+                filename=f"celegans_trace_before1st_{self.args.run_id}",
+            )
 
+            # plot the reconstruction after the first odor
+            # t_steps = 200
+            # start = 361
+            # trace = self.dataset.reconstruct(
+            #     model, start=start, warmup=warmup, timestep=t_steps, dt=1e-4
+            # )[:, :, self.dataset.observed_mask]
+            # trace = trace.detach().cpu().numpy()
+            # num_neuron = 16
+            # ncol = 4
+            # _, axes = plt.subplots(num_neuron // ncol, ncol, figsize=(25, 25))
+            # for neuron_index in range(num_neuron):
+            #     ax = axes[neuron_index // ncol, neuron_index % ncol]
+            #     true_data_1 = activity[
+            #         start + t_steps - 40 : start + t_steps, :, neuron_index
+            #     ].flatten()
+            #     gen_data = trace[
+            #         t_steps - 40 :t_steps, :, neuron_index
+            #     ].flatten()
+            #     ax.hist(
+            #         true_data_1,
+            #         density=True,
+            #         alpha=0.5,
+            #         bins=np.linspace(min(true_data_1), max(true_data_1), 20),
+            #     )
+            #     ax.hist(
+            #         gen_data,
+            #         density=True,
+            #         alpha=0.5,
+            #         bins=np.linspace(min(true_data_1), max(true_data_1), 20),
+            #     )
+            #     ax.legend(["true", "generated"])
+            # savefig(
+            #     path="./image/celegans",
+            #     filename=f"celegans_trace_after1st_{self.args.run_id}",
+            # )
+
+            # n_observed = np.sum(self.dataset.observed_mask).item()
+            # w_dist = np.zeros((2 * (t_steps // 40) + 1, n_observed))
+            # for i in range(n_observed):
+            #     w_dist[0, i] = wasserstein_distance(
+            #         activity[start : start + t_steps, :11, i].flatten(),
+            #         activity[start : start + t_steps, 11:, i].flatten(),
+            #     )
+            #     for j in range(t_steps // 40):
+            #         w_dist[2 * j + 1, i] = wasserstein_distance(
+            #             activity[
+            #                 start + 40 * j : start + 40 * (j + 1), :11, i
+            #             ].flatten(),
+            #             activity[
+            #                 start + 40 * j : start + 40 * (j + 1), 11:, i
+            #             ].flatten(),
+            #         )
+            #         w_dist[2 * j + 2, i] = wasserstein_distance(
+            #             trace[40 * j : 40 * (j + 1), :, i].flatten(),
+            #             activity[start + 40 * j : start + 40 * (j + 1), :, i].flatten(),
+            #         )
+            #     breakpoint()
+            # df = pd.DataFrame(
+            #     w_dist.T,
+            #     # columns=["baseline"]
+            #     # + [
+            #     #     f"{start + 40 * j} - {start + 40 * (j + 1)}"
+            #     #     for j in range(t_steps // 40)
+            #     # ],
+            # )
+            # df.plot(kind="box", showfliers=False)
+            # savefig(
+            #     path="./image/celegans",
+            #     filename=f"Wasserstein_distribution_after1stodor{self.args.run_id}",
+            # )
             # for trial in range(21):
             #     logging.info(f"generating trial {trial}")
             #     _, axes = plt.subplots(num_neuron // 2, 2, figsize=(25, 10))
@@ -196,14 +287,15 @@ class Celegans:
     """
         get the distribution of a vector of sample
     """
+
     @staticmethod
     def get_batch_distribution(samples, bin_edges):
         n_neuron = samples.shape[-1]
         distributions = np.zeros((n_neuron, len(bin_edges) - 1))
         # Calculate the histogram with probabilities (density=True)
         for i in range(n_neuron):
-            distributions[i], _ = np.histogram(samples[...,i], bins=bin_edges, density=True)
+            distributions[i], _ = np.histogram(
+                samples[..., i], bins=bin_edges, density=True
+            )
 
-        return distributions*(bin_edges[1]-bin_edges[0])
-
-
+        return distributions * (bin_edges[1] - bin_edges[0])

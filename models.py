@@ -215,7 +215,7 @@ class CelegansRNN(torch.nn.Module):
         )
         self.init_weights()
 
-    def forward(self, hidden, input):
+    def forward(self, hidden, input=None):
         F = self.cal_F(hidden, input)
         nbatch = hidden.shape[0]
         return (
@@ -249,7 +249,7 @@ class CelegansRNN(torch.nn.Module):
         mask: whether to mask the weight (enforce sparsity)
         sym_elec: whether to symmetrize the electric synapse
     '''
-    def cal_F(self, sample, input, mask=False, sym_elec=False):
+    def cal_F(self, sample, input=None, mask=False, sym_elec=False):
         if mask:
             self.mask_weight()
         if sym_elec:
