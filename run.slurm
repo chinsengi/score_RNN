@@ -3,8 +3,8 @@
 #SBATCH --job-name=gen_RNN
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sc256@uw.edu
-#SBATCH --account=amath
-#SBATCH --partition=gpu-rtx6k 
+#SBATCH --account=deepthought
+#SBATCH --partition=gpu-2080ti
 # SBATCH --partition=ckpt
 #SBATCH --nodes=3
 #SBATCH --mem=20G
@@ -12,13 +12,13 @@
 
 #SBATCH --chdir=.
 #SBATCH --output=./slurm_out/slurm-%j.out
-TEST_ONLY=false
-# TEST_ONLY=true
+# TEST_ONLY=false
+TEST_ONLY=true
 RUN="DP"
 # RUN="MNIST"
 # Your programs to run.
 
-RUNID=6
+RUNID=10
 declare -a models=("SR" "SO_SC" "SO_FR")
 # declare -a run_ids=("4")
 # declare -a models=("SR")
@@ -43,7 +43,7 @@ if [ "$TEST_ONLY" = true ]; then
 else
     echo "TRAINING AND TESTING"
     for i in ${!models[@]}; do
-        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --nonlin tanh&
+        srun --ntasks=1 --gres=gpu:1 python main.py --runner $RUN --run_id $RUNID --hid_dim $hid_dim --nepochs $nepochs --model ${models[$i]} --nonlin relu&
         ((RUNID++))
     done
     wait

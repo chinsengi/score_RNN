@@ -14,7 +14,7 @@ from matplotlib.colors import Normalize, LogNorm
 import scienceplots
 import torch.nn as nn
 
-# plt.style.use('science')
+plt.style.use('science')
 __all__ = ['DP']
 
 # double peak experiment
@@ -22,13 +22,12 @@ class DP():
     def __init__(self, args) -> None:
         self.args = args
         self.device = args.device
-        self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
-        self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
         # self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
-        # self.data_std = torch.tensor([.5, .5]).reshape([2, 1])
+        # self.data_std = torch.tensor([.25, .5]).reshape([2, 1])
+        self.data_mean = torch.tensor([-1., 1.]).reshape([2, 1])
+        self.data_std = torch.tensor([.5, .5]).reshape([2, 1])
         self.noise_start = 1
         self.noise_end = 1/50
-        # torch.set_float32_matmul_precision('high')
 
     def train(self):
         out_dim, hid_dim = 1, self.args.hid_dim
@@ -43,7 +42,6 @@ class DP():
         logging.info("model used is :"+ self.args.model)
         model = self.set_model()
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=.001, amsgrad=True)
-        # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, amsgrad=True)
 
         # annealing noise
         n_level = self.args.noise_level
@@ -91,25 +89,28 @@ class DP():
             lower_bound = torch.min(self.data_mean) - torch.max(self.data_std)*3
             upper_bound = torch.max(self.data_mean) + torch.max(self.data_std)*3
             x_range = torch.arange(lower_bound, upper_bound, .1)
+            fig, ax = plt.subplots()
             for i in range(1,n_level+1):
                 load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{i*(self.args.nepochs//self.args.noise_level)}.pth", model)
                 model.set_weight()
                 tmp = model.score(x_range.to(self.device).reshape(1, -1, 1)).squeeze().detach().cpu().numpy()
                 plt.plot(x_range, tmp, color=colors[i-1])
+            breakpoint()
             true_score = score_GMM_1D(x_range, self.data_mean, self.data_std**2)
             plt.plot(x_range, true_score, color="orange", label="true score")
             plt.legend()
             sm = ScalarMappable(norm=norm, cmap="Blues_r")
             sm.set_array([])
-            plt.colorbar(sm)
+            plt.colorbar(sm, ax=ax)
             plt.tight_layout()
+            plt.rcParams.update({'font.size': 36})
             savefig(path="./image/DP", filename=self.args.model+"_score_func")
             
             # get samples
             load(f"./model/DP/{self.args.run_id}/{self.args.model}_chkpt{self.args.run_id}.pth", model)
             # load(f"./model/DP/{self.args.run_id}/{self.args.model}_ep{self.args.nepochs}.pth", model)
             model.set_weight()
-            model.dt = 1e-5
+            model.dt = 1e-4
             samples = gen_sample(model, samples, 10000)
             plt.figure()
             samples = model.W_out(samples)
@@ -118,7 +119,8 @@ class DP():
             bin_edges = x_range.numpy()
             _, bins, _ = plt.hist(samples, bins=bin_edges, label=  "sampled points")
             plt.plot(x_range, mixture_pdf(x_range, self.data_mean, self.data_std**2)*nsample*(bins[2]-bins[1]), label="Scaled density function", color="orange")
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            # plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.rcParams.update({'font.size': 36})
             savefig(path="./image/DP", filename=self.args.model+f"_{self.args.run_id}_DP_sampled")
 
     def set_model(self):

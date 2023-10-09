@@ -86,14 +86,16 @@ class NeuralDyn(torch.nn.Module):
         super().__init__()
         self.hid_dim = hid_dim
         self.gamma = Parameter(torch.ones(self.hid_dim, 1, requires_grad=True))
-        self.sig = Parameter(torch.eye(self.hid_dim, requires_grad=True)) # actually inverse diffusion coefficient
+        self.sig = Parameter(
+            torch.eye(self.hid_dim, requires_grad=True)
+        )  # actually inverse diffusion coefficient
         self.W = nn.Linear(self.hid_dim, self.hid_dim, bias=True)
         self.W_out = nn.Identity()
         self.non_lin = non_lin
         self.dt = dt
-        self.synap = (
-            synap  # if the dynamics is synaptic current or not (firing rate dynamics)
-        )
+
+        # if the dynamics is synaptic current or not (firing rate dynamics)
+        self.synap = synap
         self.is_set_weight = True
 
     def forward(self, input):
@@ -122,7 +124,9 @@ class NeuralDyn(torch.nn.Module):
 
 
 class rand_RNN(torch.nn.Module):
-    def __init__(self, hid_dim, out_dim, dt=0.001, non_lin=nn.ReLU(), fast_sampling=False):
+    def __init__(
+        self, hid_dim, out_dim, dt=0.001, non_lin=nn.ReLU(), fast_sampling=False
+    ):
         super().__init__()
         self.hid_dim = hid_dim
         self.out_dim = out_dim
@@ -171,14 +175,16 @@ class rand_RNN(torch.nn.Module):
             skew_symmetric = self.get_skew_symmetric()
             # lam = skew_symmetric[0,1].detach()
             # internal_score = internal_score @ (torch.eye(self.out_dim).to(sample) - skew_symmetric)/(1+lam**2)
-            internal_score = internal_score @ torch.linalg.solve(torch.eye(self.out_dim).to(sample) - skew_symmetric)
+            internal_score = internal_score @ torch.linalg.solve(
+                torch.eye(self.out_dim).to(sample) - skew_symmetric
+            )
         return internal_score
 
     def get_skew_symmetric(self):
         skew_symmetric = self.J - self.J.T
         skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
         return skew_symmetric
-    
+
     def init_weights(self, m):
         if isinstance(m, nn.Linear):
             init.xavier_uniform_(m.weight)
@@ -205,13 +211,15 @@ class CelegansRNN(torch.nn.Module):
 
         # sensory mask
         self.sensory_mask = connectome.neuron_mask_dict["sensory"].bool().squeeze()
-        self.in_dim = int(torch.sum(self.sensory_mask).item()) # number of sensory neurons
+        self.in_dim = int(
+            torch.sum(self.sensory_mask).item()
+        )  # number of sensory neurons
 
         # sensory input
         self.Win = nn.Sequential(
-            nn.Linear(sensory_input_dim, self.hid_dim*2),
+            nn.Linear(sensory_input_dim, self.hid_dim * 2),
             non_lin,
-            nn.Linear(self.hid_dim*2, self.in_dim),
+            nn.Linear(self.hid_dim * 2, self.in_dim),
         )
         self.init_weights()
 
@@ -221,7 +229,8 @@ class CelegansRNN(torch.nn.Module):
         return (
             hidden
             + self.dt * F
-            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))@self.sig.T
+            + (math.sqrt(2 * self.dt) * torch.randn(nbatch, self.hid_dim).to(hidden))
+            @ self.sig.T
         )
 
     """
@@ -236,11 +245,13 @@ class CelegansRNN(torch.nn.Module):
 
     def score(self, sample, input, mask=False, sym_elec=False):
         _F = self.cal_F(sample, input, mask, sym_elec)
-        # sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)  
+        # sensory_input = self.Win(input) * torch.sum(input, axis=1).unsqueeze(1)
         # _score[:, self.sensory_mask] += sensory_input
-        return torch.linalg.solve(self.sig @ self.sig.T + self.get_skew_symmetric(), _F, left=False)
-    
-    '''
+        return torch.linalg.solve(
+            self.sig @ self.sig.T + self.get_skew_symmetric(), _F, left=False
+        )
+
+    """
     calculate the drift term 
 
     Args:
@@ -248,7 +259,8 @@ class CelegansRNN(torch.nn.Module):
         input: sensory input
         mask: whether to mask the weight (enforce sparsity)
         sym_elec: whether to symmetrize the electric synapse
-    '''
+    """
+
     def cal_F(self, sample, input=None, mask=False, sym_elec=False):
         if mask:
             self.mask_weight()
@@ -259,12 +271,14 @@ class CelegansRNN(torch.nn.Module):
         trans_input = self.W_chem(self.non_lin(sample))
         _F = (
             -sample
-            + self.E(trans_input) - sample * trans_input # chemical synapse input
-            + sample @ W_elec - sample * torch.sum(W_elec, dim=1) # electric synapse input
+            + self.E(trans_input)
+            - sample * trans_input  # chemical synapse input
+            + sample @ W_elec
+            - sample * torch.sum(W_elec, dim=1)  # electric synapse input
             + self.v_rest
         ) * self.gamma
         return _F
-    
+
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -282,7 +296,7 @@ class CelegansRNN(torch.nn.Module):
         skew_symmetric = self.J - self.J.T
         # skew_symmetric = 0.01 * skew_symmetric / torch.norm(skew_symmetric)
         return skew_symmetric
-    
+
     @staticmethod
     def symmetric(X):
         return X.triu() + X.triu(1).transpose(-1, -2)
