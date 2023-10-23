@@ -1,15 +1,39 @@
 # score-based generative model with RNN
 
-Run different experiments with command
+## How to run the code
 
-`python main.py --runner MNIST --run_id 0 --hid_dim 20000 --nepochs 1000 --model SR`
-`python main.py --runner DP --run_id 3 --hid_dim 1000 --nepochs 1000 --model SR`
-`python main.py --runner DP --run_id 2 --hid_dim 1000 --nepochs 1000 --model SO_SC --test`
-`python main.py --runner DP --run_id 1 --hid_dim 1000 --nepochs 1000 --model SO_FR --test`
-`python main.py --runner DP --run_id 0 --hid_dim 1000 --nepochs 1000 --model SR --test`
-`python main.py --runner LAP --run_id 8 --hid_dim 1000 --nepochs 1000 --model SR`
+### Dependencies
 
-## Hyak commands
-`salloc -A amath -p gpu-rtx6k -N 1 -c 1 --mem=40G  --time=24:00:00 --gpus=1`
-`squeue -u <net_id>`
+Run the following to install a subset of necessary python packages for our code
+```sh
+conda env create -f environment.yml
+```
+
+### Usage
+Run the following command to train the generative RNN:
+
+```bash
+python main.py --runner MNIST --hid_dim 20000 --nepochs 1000 --model SR
+```
+
+To test the planner, run the following command:
+
+```bash
+python main.py --runner MNIST --hid_dim 20000 --nepochs 1000 --model SR --test
+```
+
+For full help, run `python main.py -h`.
+## References
+
+If you find the code useful for your research, please consider citing
+```bib
+@inproceedings{
+  chen2023expressive,
+  title={Expressive probabilistic sampling in recurrent neural networks},
+  author={Chen, Shirui and Jiang, Linxin Preston and Rao, Rajesh PN and Shea-Brown, Eric},
+  booktitle={Advances in Neural Information Processing Systems},
+  year={2023},
+  url={https://openreview.net/forum?id=ch1buUOGa3}
+}
+```
 
