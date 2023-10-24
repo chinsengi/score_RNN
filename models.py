@@ -379,28 +379,31 @@ class SparseNet(nn.Module):
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, hidden_dim):
+    def __init__(self, hidden_dim, img_size=28, n_channel=1):
         super(Autoencoder, self).__init__()
         self.hidden_dim = hidden_dim
+        self.img_size = img_size
+        self.n_channel = n_channel
+        # breakpoint()
         self.encoder = nn.Sequential(
-            # 1 x 28 x 28
-            nn.Conv2d(1, 16, kernel_size=5),
+            # 1 x 28 x 28/32
+            nn.Conv2d(n_channel, 16, kernel_size=5),
             nn.BatchNorm2d(16),
             nn.ReLU(),
-            # 16 x 24 x 24
+            # 16 x 24 x 24/28
             nn.Conv2d(16, 16, kernel_size=5),
             nn.BatchNorm2d(16),
             nn.ReLU(),
-            # 16 x 20 x 20 = 3200
+            # 16 x 20 x 20/24
             nn.Conv2d(16, 16, kernel_size=4, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
-            # 16 x 9 x 9
+            # 16 x 9 x 9/11
             nn.Conv2d(16, 10, kernel_size=4),
             nn.BatchNorm2d(10),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(10 * 6 * 6, 64),
+            nn.Linear(10 * (img_size//2 -8)**2, 64),
             nn.ReLU(),
             nn.Linear(64, self.hidden_dim),
         )
@@ -424,10 +427,14 @@ class Autoencoder(nn.Module):
             nn.BatchNorm2d(16),
             nn.ReLU(),
             # 16 x 24 x 24
-            nn.ConvTranspose2d(16, 1, kernel_size=5),
+            nn.ConvTranspose2d(16, n_channel, kernel_size=5),
         )
+        self.output = nn.ConvTranspose2d(n_channel, n_channel, kernel_size=5)
+
 
     def forward(self, x):
         enc = self.encoder(x)
         dec = self.decoder(enc)
+        if self.n_channel == 3:
+            dec = self.output(dec)
         return dec

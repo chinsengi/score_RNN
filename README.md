@@ -1,4 +1,4 @@
-# score-based generative model with RNN
+# Score-based generative model with RNN
 
 ## How to run the code
 
