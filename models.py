@@ -403,15 +403,15 @@ class Autoencoder(nn.Module):
             nn.BatchNorm2d(10),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(10 * (img_size//2 -8)**2, 64),
+            nn.Linear(10 * (img_size//2 -8)**2, self.hidden_dim*2),
             nn.ReLU(),
-            nn.Linear(64, self.hidden_dim),
+            nn.Linear(self.hidden_dim*2, self.hidden_dim),
         )
         self.decoder = nn.Sequential(
             # 10
-            nn.Linear(self.hidden_dim, 64),
+            nn.Linear(self.hidden_dim, self.hidden_dim*2),
             nn.ReLU(),
-            nn.Linear(64, 10 * 6 * 6),
+            nn.Linear(self.hidden_dim*2, 10 * 6 * 6),
             nn.ReLU(),
             nn.Unflatten(1, (10, 6, 6)),
             # 10 x 6 x 6
@@ -428,8 +428,11 @@ class Autoencoder(nn.Module):
             nn.ReLU(),
             # 16 x 24 x 24
             nn.ConvTranspose2d(16, n_channel, kernel_size=5),
+            nn.BatchNorm2d(n_channel),
+            nn.ReLU(),
         )
         self.output = nn.ConvTranspose2d(n_channel, n_channel, kernel_size=5)
+        self.sig = nn.Sigmoid()
 
 
     def forward(self, x):
@@ -437,4 +440,40 @@ class Autoencoder(nn.Module):
         dec = self.decoder(enc)
         if self.n_channel == 3:
             dec = self.output(dec)
+        dec = self.sig(dec)
         return dec
+
+class AutoencoderCifar(nn.Module):
+    def __init__(self, feature_dim=128):
+        super(AutoencoderCifar, self).__init__()
+        # Input size: [batch, 3, 32, 32]
+        # Output size: [batch, 3, 32, 32]
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 12, 4, stride=2, padding=1),            # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.Conv2d(12, 24, 4, stride=2, padding=1),           # [batch, 24, 8, 8]
+            nn.ReLU(),
+			nn.Conv2d(24, 48, 4, stride=2, padding=1),           # [batch, 48, 4, 4]
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(48*4*4, feature_dim),
+# 			nn.Conv2d(48, 96, 4, stride=2, padding=1),           # [batch, 96, 2, 2]
+#             nn.ReLU(),
+        )
+        self.decoder = nn.Sequential(
+#             nn.ConvTranspose2d(96, 48, 4, stride=2, padding=1),  # [batch, 48, 4, 4]
+#             nn.ReLU(),
+            nn.Linear(feature_dim, 48*4*4),
+            nn.Unflatten(1, (48,4,4)),
+			nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),  # [batch, 24, 8, 8]
+            nn.ReLU(),
+			nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),  # [batch, 12, 16, 16]
+            nn.ReLU(),
+            nn.ConvTranspose2d(12, 3, 4, stride=2, padding=1),   # [batch, 3, 32, 32]
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
