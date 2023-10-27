@@ -21,9 +21,9 @@ arg.hidden_dim = 128
 arg.dataset_name = "cifar10"
 arg.img_size = 32
 arg.n_channel = 3
-arg.batch_size = 500
-arg.learning_rate = 5e-4
-arg.epoch = 250
+arg.batch_size = 32
+arg.learning_rate = 1e-3
+arg.epoch = 1000
 
 hyperparam_str = f"ae-hidden_dim-{arg.hidden_dim}-lr-{arg.learning_rate}"
 train_board = SummaryWriter(f"run/{hyperparam_str}-train")
@@ -34,6 +34,9 @@ device = use_gpu()
 # create net
 # autoencoder = Autoencoder(arg.hidden_dim, arg.img_size, arg.n_channel).to(device)
 autoencoder = AutoencoderCifar(feature_dim=arg.hidden_dim).to(device)
+# autoencoder.load_state_dict(torch.load("model/ae/ae-hidden_dim-128-lr-0.0005-ckpt-250.pth"))
+# for param in autoencoder.encoder.parameters():
+#     param.requires_grad = False
 # load(f'model/ae/ae-{hyperparam_str}-ckpt-250.pth', autoencoder)
 
 def create_dataloader(batch_size, train=True, dataset_name="MNIST"):
@@ -66,6 +69,7 @@ test_dataloader = create_dataloader(
 ckpt_dir = "model/ae"
 create_dir(ckpt_dir)
 # train
+# criterion = nn.MSELoss()
 criterion = nn.BCELoss()
 optim = torch.optim.AdamW(autoencoder.parameters(), lr=arg.learning_rate)
 for e in range(arg.epoch):
@@ -83,8 +87,11 @@ for e in range(arg.epoch):
             img_batch.shape[0], arg.n_channel, arg.img_size, arg.img_size
         ).to(device)
         # update
-        pred = autoencoder(img_batch)
-        loss = criterion(pred, img_batch)
+        hidden = autoencoder.encoder(img_batch)
+        # hidden = hidden + torch.randn_like(hidden) * 0.01
+        pred = autoencoder.decoder(hidden)
+        loss = criterion(pred, img_batch) + 0.001 * torch.norm(hidden, p=1)
+        loss = criterion(pred, img_batch) 
         running_loss_train += loss.item()
         loss.backward()
         # update U
@@ -109,21 +116,21 @@ for e in range(arg.epoch):
         c += 1
     test_board.add_scalar("Loss", running_loss_test / c, e)
 
-    # plotting
-    fig, ax = plot_true_and_recon_img(
-        img_batch[0]
-        .reshape(arg.img_size, arg.img_size, arg.n_channel)
-        .detach()
-        .cpu()
-        .numpy(),
-        pred[0]
-        .reshape(arg.img_size, arg.img_size, arg.n_channel)
-        .detach()
-        .cpu()
-        .numpy(),
-    )
-    test_board.add_figure("Recon", fig, global_step=e)
-    if e % 10 == 9:
+        # plotting
+    if (e+1) %100 == 0:
+        fig, ax = plot_true_and_recon_img(
+            img_batch[0]
+            .reshape(arg.img_size, arg.img_size, arg.n_channel)
+            .detach()
+            .cpu()
+            .numpy(),
+            pred[0]
+            .reshape(arg.img_size, arg.img_size, arg.n_channel)
+            .detach()
+            .cpu()
+            .numpy(),
+        )
+        test_board.add_figure("Recon", fig, global_step=e)
         # save checkpoint
         torch.save(
             autoencoder.state_dict(), f"{ckpt_dir}/{hyperparam_str}-ckpt-{e+1}.pth"

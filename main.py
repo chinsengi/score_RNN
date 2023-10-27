@@ -28,7 +28,7 @@ def parse_args_and_config():
     parser.add_argument('--filter', type=str, default='pca', help='Different filters for MNIST runner: pca | sparse | ae | none')
     parser.add_argument('--sparse-weight-path', type=str, default='data/MNIST/sparse_weights/sparse_net.pth', \
                         help='path to sparse filter weights trained on MNIST')
-    parser.add_argument('--ae-weight-path', type=str, default='model/ae/ae-hidden_dim-128-lr-0.0005-ckpt-250.pth', help='path to autoencoder weights trained on MNIST')
+    parser.add_argument('--ae-weight-path', type=str, default='model/ae/ae-hidden_dim-128-lr-0.001-ckpt-1000.pth', help='path to autoencoder weights trained on MNIST')
     parser.add_argument("--model", type=str, default="SR", help="model type: SR (Reservoir-sampler) |\
                          SO_FR (Sampler-only with firing rate dynamics) | SO_SC (Sampler-only with synaptic current dynamics)")
     parser.add_argument("--noise_level", type=int, default=10, help="number of noise steps")

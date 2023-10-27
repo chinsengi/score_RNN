@@ -473,7 +473,9 @@ class AutoencoderCifar(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x):
+    def forward(self, x, test=True):
         encoded = self.encoder(x)
+        if not test:
+            x = x + torch.randn_like(x) / 10
         decoded = self.decoder(encoded)
         return decoded
