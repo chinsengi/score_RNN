@@ -16,7 +16,7 @@ Run the following command to train the generative RNN:
 python main.py --runner MNIST --hid_dim 20000 --nepochs 1000 --model SR
 ```
 
-To test the planner, run the following command:
+To test the sampler, run the following command:
 
 ```bash
 python main.py --runner MNIST --hid_dim 20000 --nepochs 1000 --model SR --test
